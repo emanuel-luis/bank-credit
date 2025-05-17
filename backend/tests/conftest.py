@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from datetime import date
 
 from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
@@ -50,7 +51,15 @@ def client(db):
 
 @pytest.fixture(scope="function")
 def test_user(db):
-    user = Client(email="test_user@example.com", hashed_password=get_password_hash("test_password"), is_active=True)
+    user = Client(
+        cnpj="12345678000199",
+        full_name="Test User",
+        birth_date=date.fromisoformat("1990-01-01"),
+        phone="11912345678",
+        email="test_user@example.com",
+        hashed_password=get_password_hash("test_password"),
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

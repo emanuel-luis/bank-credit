@@ -1,6 +1,6 @@
 # populate.py
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC
 from passlib.context import CryptContext
 
 from bank_credit.app.database import SessionLocal, engine, Base
@@ -79,7 +79,7 @@ def populate():
             subject="Bem-vindo!",
             message="Conta criada com sucesso. Use /auth/token para obter seu JWT.",
             read=False,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
         )
         db.add(notif1)
         db.commit()

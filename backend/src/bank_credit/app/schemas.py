@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field, validator
-from datetime import datetime
+from datetime import date, datetime, UTC
 from typing import Optional, List
 import re
 
@@ -24,18 +24,19 @@ class ClientBase(BaseModel):
 class ClientCreate(BaseModel):
     cnpj: str
     full_name: str
-    birth_date: str
+    birth_date: date
     phone: str
     email: EmailStr
     password: str
 
-    @validator('cnpj')
+    @validator("cnpj")
     def validate_cnpj(cls, v):
-        cnpj = re.sub(r'\D', '', v)
+        cnpj = re.sub(r"\D", "", v)
         if not cnpj.isdigit():
-            raise ValueError('CNPJ deve conter apenas números')
+            raise ValueError("CNPJ deve conter apenas números")
         if len(cnpj) != 14 or len(set(cnpj)) == 1:
-            raise ValueError('CNPJ inválido')
+            raise ValueError("CNPJ inválido")
+
         def calc(x):
             n = cnpj[:x]
             y = x - 7
@@ -47,27 +48,30 @@ class ClientCreate(BaseModel):
                     y = 9
             r = 11 - s % 11
             return 0 if r > 9 else r
+
         if not (calc(12) == int(cnpj[12]) and calc(13) == int(cnpj[13])):
-            raise ValueError('CNPJ inválido')
+            raise ValueError("CNPJ inválido")
         return cnpj
 
-    @validator('full_name')
+    @validator("full_name")
     def validate_full_name(cls, v):
-        if len(v.strip().split(' ')) < 2:
-            raise ValueError('Informe o nome completo')
+        if len(v.strip().split(" ")) < 2:
+            raise ValueError("Informe o nome completo")
         return v
 
-    @validator('phone')
+    @validator("phone")
     def validate_phone(cls, v):
-        if not re.match(r'^\(?\d{2}\)? ?\d{4,5}-?\d{4}$', v):
-            raise ValueError('Telefone inválido')
+        if not v.isdigit():
+            raise ValueError("Telefone deve conter apenas números")
+        if len(v) < 10 or len(v) > 11:
+            raise ValueError("Telefone deve ter entre 10 e 11 dígitos, incluindo DDD")
         return v
 
-    @validator('birth_date')
+    @validator("birth_date")
     def validate_birth_date(cls, v):
         # Simples: só checa se não está vazio
         if not v:
-            raise ValueError('Data de nascimento obrigatória')
+            raise ValueError("Data de nascimento obrigatória")
         return v
 
 
@@ -109,7 +113,7 @@ class CreditRequestBase(BaseModel):
 
     @validator("deliver_date")
     def validate_deliver_date(cls, v):
-        if v <= datetime.utcnow():
+        if v <= datetime.now():
             raise ValueError("Deliver date must be in the future")
         return v
 

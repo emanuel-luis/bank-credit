@@ -1,6 +1,5 @@
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
-from typing import List, Optional
 import os
 from dotenv import load_dotenv
 

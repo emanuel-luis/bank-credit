@@ -1,7 +1,7 @@
 # app/utils.py
 
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import networkx as nx
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,7 @@ def send_notification(client_id: int, subject: str, message: str):
             subject=subject,
             message=message,
             read=False,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
         )
         db.add(notif)
         db.commit()
@@ -66,7 +66,7 @@ def schedule_sla_alert(request_id: int, sla_days: int):
             # Se ainda estiver pendente em algum setor, dispara notificação
             if req.status.startswith("PENDING_"):
                 deadline = req.updated_at + timedelta(days=sla_days)
-                if datetime.utcnow() >= deadline:
+                if datetime.now() >= deadline:
                     send_notification(
                         client_id=req.client_id,
                         subject="Alerta de SLA ultrapassado",

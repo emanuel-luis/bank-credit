@@ -1,7 +1,13 @@
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from datetime import datetime, UTC, timedelta
 from bank_credit.app.database import SessionLocal, engine, Base
-from bank_credit.app.models import Client, Sector, Process, CreditRequest, RequestHistory, Notification
+from bank_credit.app.models import (
+    Client,
+    Sector,
+    Process,
+    CreditRequest,
+    RequestHistory,
+    Notification,
+)
 from bank_credit.app.routers.auth import get_password_hash
 
 
@@ -17,8 +23,16 @@ def create_initial_data():
 
         # Criar usuários de exemplo
         clients = [
-            Client(username="joao.silva", hashed_password=get_password_hash("senha123"), is_active=True),
-            Client(username="maria.santos", hashed_password=get_password_hash("senha456"), is_active=True),
+            Client(
+                username="joao.silva",
+                hashed_password=get_password_hash("senha123"),
+                is_active=True,
+            ),
+            Client(
+                username="maria.santos",
+                hashed_password=get_password_hash("senha456"),
+                is_active=True,
+            ),
         ]
         db.add_all(clients)
         db.commit()
@@ -60,16 +74,16 @@ def create_initial_data():
                 client_id=clients[0].id,
                 amount=30000.0,
                 status="PENDING",
-                created_at=datetime.utcnow(),
-                deliver_date=datetime.utcnow() + timedelta(days=7),
+                created_at=datetime.now(),
+                deliver_date=datetime.now() + timedelta(days=7),
                 current_process_id=processes[0].id,
             ),
             CreditRequest(
                 client_id=clients[1].id,
                 amount=150000.0,
                 status="PENDING",
-                created_at=datetime.utcnow(),
-                deliver_date=datetime.utcnow() + timedelta(days=10),
+                created_at=datetime.now(),
+                deliver_date=datetime.now() + timedelta(days=10),
                 current_process_id=processes[0].id,
             ),
         ]
@@ -78,8 +92,16 @@ def create_initial_data():
 
         # Criar histórico para as solicitações
         histories = [
-            RequestHistory(request_id=credit_requests[0].id, status="PENDING", timestamp=datetime.utcnow()),
-            RequestHistory(request_id=credit_requests[1].id, status="PENDING", timestamp=datetime.utcnow()),
+            RequestHistory(
+                request_id=credit_requests[0].id,
+                status="PENDING",
+                timestamp=datetime.now(),
+            ),
+            RequestHistory(
+                request_id=credit_requests[1].id,
+                status="PENDING",
+                timestamp=datetime.now(),
+            ),
         ]
         db.add_all(histories)
         db.commit()
@@ -91,14 +113,14 @@ def create_initial_data():
                 subject="Solicitação Recebida",
                 message="Sua solicitação de crédito foi recebida e está em análise.",
                 read=False,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(),
             ),
             Notification(
                 client_id=clients[1].id,
                 subject="Documentação Necessária",
                 message="Por favor, envie os documentos necessários para análise do seu crédito.",
                 read=False,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(),
             ),
         ]
         db.add_all(notifications)

@@ -2,6 +2,7 @@ import pytest
 from fastapi import status
 from bank_credit.app.models import Process, Sector
 
+
 @pytest.fixture
 def process(db):
     sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
@@ -15,6 +16,7 @@ def process(db):
     db.refresh(process)
     return process
 
+
 def test_get_process_graph(authorized_client, db, process):
     response = authorized_client.get("/graph/")
     assert response.status_code == status.HTTP_200_OK
@@ -23,6 +25,7 @@ def test_get_process_graph(authorized_client, db, process):
     assert "edges" in data
     assert any(node["id"] == process.id for node in data["nodes"])
     assert any("Test Sector" in node["sectors"] for node in data["nodes"])
+
 
 def test_visualize_process_graph(authorized_client, db, process):
     response = authorized_client.get("/graph/visualize")

@@ -1,6 +1,6 @@
 # app/crud.py
 
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from typing import List, Optional
 
 import networkx as nx
@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from bank_credit.app import models, schemas, utils
-from bank_credit.app.password_utils import get_password_hash, verify_password
 from bank_credit.app.utils import send_notification, build_process_graph
 
 # --- Client / Auth CRUD ---
@@ -22,27 +21,22 @@ def get_client_by_email(db: Session, email: str) -> Optional[models.Client]:
 
 
 def create_client(db: Session, client_in: schemas.ClientCreate) -> models.Client:
+    from bank_credit.app.routers.auth import get_password_hash
+
     hashed_pw = get_password_hash(client_in.password)
     db_client = models.Client(
         cnpj=str(client_in.cnpj),
         full_name=str(client_in.full_name),
-        birth_date=str(client_in.birth_date),
+        birth_date=client_in.birth_date,
         phone=str(client_in.phone),
         email=str(client_in.email),
         hashed_password=hashed_pw,
-        is_active=True
+        is_active=True,
     )
     db.add(db_client)
     db.commit()
     db.refresh(db_client)
     return db_client
-
-
-def authenticate_user(db: Session, email: str, password: str) -> Optional[models.Client]:
-    client = get_client_by_email(db, email)
-    if not client or not verify_password(password, client.hashed_password):
-        return None
-    return client
 
 
 # --- Credit Request CRUD ---
@@ -61,7 +55,7 @@ def list_client_requests(db: Session, client_id: int) -> List[models.CreditReque
 
 
 def record_history(db: Session, request: models.CreditRequest, status: str):
-    hist = models.RequestHistory(request_id=request.id, status=status, timestamp=datetime.utcnow())
+    hist = models.RequestHistory(request_id=request.id, status=status, timestamp=datetime.now())
     db.add(hist)
     db.commit()
 
@@ -83,7 +77,7 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
         else:
             status = "CHECKLIST_OK"
 
-    now = datetime.utcnow()
+    now = datetime.now()
     deliver_date = req_in.deliver_date
 
     db_req = models.CreditRequest(
@@ -104,7 +98,7 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
 
 def update_request_status(db: Session, request: models.CreditRequest, new_status: str) -> models.CreditRequest:
     request.status = new_status
-    request.updated_at = datetime.utcnow()
+    request.updated_at = datetime.now()
     db.add(request)
     db.commit()
     record_history(db, request, new_status)
@@ -149,7 +143,7 @@ def route_credit_request(db: Session, request: models.CreditRequest):
     target_sector = eligible_sectors[0]
     request.current_process_id = next_proc.id
     request.status = f"PENDING_{next_proc.name.upper()}_{target_sector.name.upper()}"
-    request.updated_at = datetime.utcnow()
+    request.updated_at = datetime.now()
     db.add(request)
     db.commit()
     record_history(db, request, request.status)
@@ -167,7 +161,7 @@ def check_overdue_requests(db: Session):
     """
     Find all requests older than 20 days in non-final status and finalize them.
     """
-    cutoff = datetime.utcnow() - timedelta(days=20)
+    cutoff = datetime.now() - timedelta(days=20)
     overdue = (
         db.query(models.CreditRequest)
         .filter(
@@ -191,7 +185,7 @@ def check_sla_alerts(db: Session):
     """
     Scan for requests approaching SLA deadlines and send alerts.
     """
-    now = datetime.utcnow()
+    now = datetime.now()
     # join CreditRequest.current_process_id with Process.sectors to get sla_days
     requests = (
         db.query(models.CreditRequest)
@@ -202,7 +196,7 @@ def check_sla_alerts(db: Session):
         .all()
     )
     for req in requests:
-        proc = db.query(models.Process).get(req.current_process_id)
+        _ = db.query(models.Process).get(req.current_process_id)
         # find sector handling it via status naming convention
         parts = req.status.split("_")
         sector_name = parts[-1]

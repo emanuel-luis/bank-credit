@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from fastapi import status
 from bank_credit.app.models import CreditRequest, RequestHistory, Process, Sector
 
@@ -28,8 +28,8 @@ def test_credit_request(db, test_user, test_process):
         client_id=test_user.id,
         amount=50000.0,
         status="PENDING",
-        created_at=datetime.utcnow(),
-        deliver_date=datetime.utcnow() + timedelta(days=7),
+        created_at=datetime.now(),
+        deliver_date=datetime.now() + timedelta(days=7),
         current_process_id=test_process.id,
     )
     db.add(credit_request)
@@ -40,7 +40,11 @@ def test_credit_request(db, test_user, test_process):
 
 def test_create_credit_request(authorized_client, test_process):
     response = authorized_client.post(
-        "/requests/", json={"amount": 50000.0, "deliver_date": (datetime.utcnow() + timedelta(days=7)).isoformat()}
+        "/requests/",
+        json={
+            "amount": 50000.0,
+            "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+        },
     )
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
@@ -87,8 +91,16 @@ def test_update_credit_request_status(authorized_client, test_credit_request, db
 def test_get_request_history(authorized_client, test_credit_request, db):
     # Criar alguns registros de histórico
     histories = [
-        RequestHistory(request_id=test_credit_request.id, status="PENDING", timestamp=datetime.utcnow()),
-        RequestHistory(request_id=test_credit_request.id, status="IN_REVIEW", timestamp=datetime.utcnow() + timedelta(hours=1)),
+        RequestHistory(
+            request_id=test_credit_request.id,
+            status="PENDING",
+            timestamp=datetime.now(),
+        ),
+        RequestHistory(
+            request_id=test_credit_request.id,
+            status="IN_REVIEW",
+            timestamp=datetime.now() + timedelta(hours=1),
+        ),
     ]
     db.add_all(histories)
     db.commit()
@@ -103,13 +115,21 @@ def test_get_request_history(authorized_client, test_credit_request, db):
 
 def test_create_request_with_invalid_amount(authorized_client):
     response = authorized_client.post(
-        "/requests/", json={"amount": -1000.0, "deliver_date": (datetime.utcnow() + timedelta(days=7)).isoformat()}
+        "/requests/",
+        json={
+            "amount": -1000.0,
+            "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+        },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_create_request_with_past_date(authorized_client):
     response = authorized_client.post(
-        "/requests/", json={"amount": 50000.0, "deliver_date": (datetime.utcnow() - timedelta(days=1)).isoformat()}
+        "/requests/",
+        json={
+            "amount": 50000.0,
+            "deliver_date": (datetime.now() - timedelta(days=1)).isoformat(),
+        },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

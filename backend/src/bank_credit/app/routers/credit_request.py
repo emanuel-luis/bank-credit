@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 
 from bank_credit.app import crud, schemas, models
 from bank_credit.app.database import get_db
@@ -126,7 +126,7 @@ def update_request_status(
     db.refresh(req)
 
     # Create history entry
-    history = models.RequestHistory(request_id=req.id, status=req.status, timestamp=datetime.utcnow())
+    history = models.RequestHistory(request_id=req.id, status=req.status, timestamp=datetime.now())
     db.add(history)
     db.commit()
 
