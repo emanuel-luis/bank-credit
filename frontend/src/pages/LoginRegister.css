@@ -300,3 +300,13 @@ input::-webkit-input-placeholder {
 input:invalid {
   outline: none !important;
 }
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-clear-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

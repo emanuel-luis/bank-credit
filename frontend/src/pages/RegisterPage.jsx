@@ -50,16 +50,34 @@ const RegisterPage = () => {
       const numeric = value.replace(/\D/g, '');
       setForm(f => ({ ...f, [name]: numeric }));
       setCnpjValid(validateCNPJ(numeric));
+    } else if (name === 'phone') {
+      // Permite apenas números
+      const numeric = value.replace(/\D/g, '');
+      setForm(f => ({ ...f, [name]: numeric }));
+    } else if (name === 'fullName') {
+      // Não permite números no nome
+      if (/\d/.test(value)) return;
+      setForm(f => ({ ...f, [name]: value }));
     } else {
       setForm(f => ({ ...f, [name]: value }));
     }
   };
+
+  const validatePhone = phone => phone && phone.length === 11;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!validateCNPJ(form.cnpj)) {
       setError('CNPJ inválido.');
+      return;
+    }
+    if (!validatePhone(form.phone)) {
+      setError('O telefone deve conter 11 dígitos (DDD + número).');
+      return;
+    }
+    if (!form.fullName || /[^a-zA-Z]/.test(form.fullName)) {
+      setError('O nome completo não pode conter números ou caractéres especiais.');
       return;
     }
     if (form.email !== form.emailConfirm) {
