@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import datetime
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -13,8 +14,7 @@ from pydantic import EmailStr
 from bank_credit.app import crud, models, schemas
 from bank_credit.app.database import get_db
 from bank_credit.app.email import send_welcome_email
-
-from passlib.context import CryptContext
+from bank_credit.app.password_utils import get_password_hash, verify_password
 
 # --- Configuration ---
 load_dotenv()
@@ -24,24 +24,10 @@ SECRET_KEY = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 router = APIRouter()
-
-
-# --- Utility functions for password hashing & verification ---
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
 
 
 # --- JWT token creation ---
@@ -61,8 +47,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 # --- Authentication dependencies ---
 
 
-async def authenticate_user(db: Session, username: str, password: str) -> Optional[models.Client]:
-    user = crud.get_client_by_username(db, username)
+async def authenticate_user(db: Session, email: str, password: str) -> Optional[models.Client]:
+    user = crud.get_client_by_email(db, email)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
@@ -78,13 +64,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email = payload.get("sub")
+        if not isinstance(email, str) or not email:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    user = crud.get_client_by_username(db, username=username)
+    user = crud.get_client_by_email(db, email=email)
     if user is None:
         raise credentials_exception
     return user
@@ -111,32 +97,34 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/register", response_model=schemas.Client, tags=["auth"])
 async def register_user(user: schemas.ClientCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # Check if username already exists
-    db_user = crud.get_client_by_username(db, username=user.username)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username já cadastrado")
-
+    # Check if CNPJ already exists
+    if db.query(models.Client).filter(models.Client.cnpj == user.cnpj).first():
+        raise HTTPException(status_code=400, detail="CNPJ já cadastrado")
     # Check if email already exists
     db_user = crud.get_client_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email já cadastrado")
-
     # Create new user
     hashed_password = get_password_hash(user.password)
-    db_user = models.Client(username=user.username, email=user.email, hashed_password=hashed_password, is_active=True)
+    db_user = models.Client(
+        cnpj=str(user.cnpj),
+        full_name=str(user.full_name),
+        birth_date=datetime.date.fromisoformat(str(user.birth_date)),
+        phone=str(user.phone),
+        email=str(user.email),
+        hashed_password=hashed_password,
+        is_active=True
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-
-    # Send welcome email in background
-    background_tasks.add_task(send_welcome_email, db_user.email, db_user.username)
-
+    background_tasks.add_task(send_welcome_email, str(db_user.email), str(db_user.full_name))
     return db_user
 
 

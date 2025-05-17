@@ -10,6 +10,7 @@ from sqlalchemy import (
     Table,
     Boolean,
     Text,
+    Date,
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -28,7 +29,10 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    cnpj = Column(String, unique=True, index=True)
+    full_name = Column(String)
+    birth_date = Column(Date)
+    phone = Column(String)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)

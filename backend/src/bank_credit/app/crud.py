@@ -8,13 +8,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from bank_credit.app import models, schemas, utils
+from bank_credit.app.password_utils import get_password_hash, verify_password
 from bank_credit.app.utils import send_notification, build_process_graph
 
 # --- Client / Auth CRUD ---
-
-
-def get_client_by_username(db: Session, username: str) -> Optional[models.Client]:
-    return db.query(models.Client).filter(models.Client.username == username).first()
 
 
 def get_client_by_email(db: Session, email: str) -> Optional[models.Client]:
@@ -25,17 +22,25 @@ def get_client_by_email(db: Session, email: str) -> Optional[models.Client]:
 
 
 def create_client(db: Session, client_in: schemas.ClientCreate) -> models.Client:
-    hashed_pw = models.generate_password_hash(client_in.password)
-    db_client = models.Client(username=client_in.username, hashed_password=hashed_pw, is_active=True)
+    hashed_pw = get_password_hash(client_in.password)
+    db_client = models.Client(
+        cnpj=str(client_in.cnpj),
+        full_name=str(client_in.full_name),
+        birth_date=str(client_in.birth_date),
+        phone=str(client_in.phone),
+        email=str(client_in.email),
+        hashed_password=hashed_pw,
+        is_active=True
+    )
     db.add(db_client)
     db.commit()
     db.refresh(db_client)
     return db_client
 
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[models.Client]:
-    client = get_client_by_username(db, username)
-    if not client or not models.verify_password(password, client.hashed_password):
+def authenticate_user(db: Session, email: str, password: str) -> Optional[models.Client]:
+    client = get_client_by_email(db, email)
+    if not client or not verify_password(password, client.hashed_password):
         return None
     return client
 

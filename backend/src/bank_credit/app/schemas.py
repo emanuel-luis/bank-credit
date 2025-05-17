@@ -4,6 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field, validator
 from datetime import datetime
 from typing import Optional, List
+import re
 
 # --- Authentication models ---
 
@@ -17,12 +18,57 @@ class Token(BaseModel):
 
 
 class ClientBase(BaseModel):
-    username: str
     email: EmailStr
 
 
-class ClientCreate(ClientBase):
+class ClientCreate(BaseModel):
+    cnpj: str
+    full_name: str
+    birth_date: str
+    phone: str
+    email: EmailStr
     password: str
+
+    @validator('cnpj')
+    def validate_cnpj(cls, v):
+        cnpj = re.sub(r'\D', '', v)
+        if not cnpj.isdigit():
+            raise ValueError('CNPJ deve conter apenas números')
+        if len(cnpj) != 14 or len(set(cnpj)) == 1:
+            raise ValueError('CNPJ inválido')
+        def calc(x):
+            n = cnpj[:x]
+            y = x - 7
+            s = 0
+            for i in range(x, 0, -1):
+                s += int(n[x - i]) * y
+                y -= 1
+                if y < 2:
+                    y = 9
+            r = 11 - s % 11
+            return 0 if r > 9 else r
+        if not (calc(12) == int(cnpj[12]) and calc(13) == int(cnpj[13])):
+            raise ValueError('CNPJ inválido')
+        return cnpj
+
+    @validator('full_name')
+    def validate_full_name(cls, v):
+        if len(v.strip().split(' ')) < 2:
+            raise ValueError('Informe o nome completo')
+        return v
+
+    @validator('phone')
+    def validate_phone(cls, v):
+        if not re.match(r'^\(?\d{2}\)? ?\d{4,5}-?\d{4}$', v):
+            raise ValueError('Telefone inválido')
+        return v
+
+    @validator('birth_date')
+    def validate_birth_date(cls, v):
+        # Simples: só checa se não está vazio
+        if not v:
+            raise ValueError('Data de nascimento obrigatória')
+        return v
 
 
 class Client(ClientBase):

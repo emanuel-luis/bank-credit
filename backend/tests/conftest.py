@@ -5,14 +5,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Configurar ambiente de teste
-os.environ["TESTING"] = "true"
-
 from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
 from bank_credit.app.routers.auth import create_access_token
 from bank_credit.app.models import Client
 from bank_credit.app.routers.auth import get_password_hash
+
+# Configurar ambiente de teste
+os.environ["TESTING"] = "true"
+
 
 # Configuração do banco de dados de teste
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -49,7 +50,7 @@ def client(db):
 
 @pytest.fixture(scope="function")
 def test_user(db):
-    user = Client(username="test_user", email="test_user@example.com", hashed_password=get_password_hash("test_password"), is_active=True)
+    user = Client(email="test_user@example.com", hashed_password=get_password_hash("test_password"), is_active=True)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -58,7 +59,7 @@ def test_user(db):
 
 @pytest.fixture(scope="function")
 def test_user_token(test_user):
-    return create_access_token(data={"sub": test_user.username})
+    return create_access_token(data={"sub": test_user.email})
 
 
 @pytest.fixture(scope="function")
