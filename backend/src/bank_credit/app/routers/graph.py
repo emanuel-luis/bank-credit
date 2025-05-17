@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 import networkx as nx
 
 from bank_credit.app.database import get_db
-from bank_credit.app.auth import get_current_active_user
+from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app import crud, models
 
 router = APIRouter()

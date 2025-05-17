@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from bank_credit.app.database import SessionLocal, engine, Base
 from bank_credit.app.models import Client, Sector, Process, CreditRequest, RequestHistory, Notification
-from bank_credit.app.auth import get_password_hash
+from bank_credit.app.routers.auth import get_password_hash
 
 
 def create_initial_data():

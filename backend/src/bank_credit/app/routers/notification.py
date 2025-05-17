@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 from bank_credit.app.database import get_db
-from bank_credit.app.auth import get_current_active_user
+from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app import models, schemas
 from bank_credit.app.email import send_notification_email
 from sqlalchemy import not_

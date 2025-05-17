@@ -10,9 +10,9 @@ os.environ["TESTING"] = "true"
 
 from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
-from bank_credit.app.auth import create_access_token
+from bank_credit.app.routers.auth import create_access_token
 from bank_credit.app.models import Client
-from bank_credit.app.auth import get_password_hash
+from bank_credit.app.routers.auth import get_password_hash
 
 # Configuração do banco de dados de teste
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

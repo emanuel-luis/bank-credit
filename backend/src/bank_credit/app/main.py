@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from bank_credit.app.database import engine, Base
-from bank_credit.app.auth import router as auth_router
+from bank_credit.app.routers.auth import router as auth_router
 from bank_credit.app.routers.credit_request import router as credit_router
 from bank_credit.app.routers.graph import router as graph_router
 from bank_credit.app.routers.notification import router as notification_router
