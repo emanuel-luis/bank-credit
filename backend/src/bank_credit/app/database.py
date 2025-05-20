@@ -9,17 +9,16 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 load_dotenv()
 
 # URL de conexão do banco de dados
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_CONNECTION_URI = os.getenv("DATABASE_CONNECTION_URI")
 
 # Cria o engine do SQLAlchemy
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(DATABASE_CONNECTION_URI)
 
 # Cria uma classe SessionLocal que gerencia as sessões do banco
 SessionLocal = sessionmaker(autocommit=False, autoflush=True, bind=engine)
 
 # Base declarativa para todos os modelos
 Base = declarative_base()
-# Base.metadata.create_all(bind=engine)
 
 
 def get_db():
@@ -28,7 +27,9 @@ def get_db():
     Use em endpoints com:
         db: Session = Depends(get_db)
     """
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
+
     try:
         yield db
     finally:

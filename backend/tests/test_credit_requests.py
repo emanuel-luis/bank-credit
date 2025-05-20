@@ -23,10 +23,7 @@ def test_create_credit_request(authorized_user, db, process):
 
 
 def test_get_credit_requests(authorized_user, db, credit_request):
-    # from bank_credit.app.routers.auth import get_current_user
     response = authorized_user.get("/requests/")
-    print(credit_request)
-    print(authorized_user.get("/auth/me").json())
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert isinstance(data, list)

@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from bank_credit.app.database import Base
+from bank_credit.app.database import Base, engine
 
 # Association table: which sectors approve which processes
 sector_approval = Table(

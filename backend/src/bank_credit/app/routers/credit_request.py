@@ -1,16 +1,18 @@
 # app/routers/credit_request.py
 
+from bank_credit.app.utils import send_notification
 from fastapi import APIRouter, Depends, HTTPException, status
 from bank_credit.app.views import auth as auth_view
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, UTC
+from datetime import datetime
 import logging
 import os
 
 from bank_credit.app import schemas, models
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
+from bank_credit.app.routers.notification import send_notification_email
 from bank_credit.app.views import credit_request as credit_view
 from bank_credit.app.views import routing as routing_view
 
@@ -167,7 +169,6 @@ def update_request_status(
     logger.info(f"[PATCH /requests/{{request_id}}/status] User {current_user.id} - Update status {status_update}")
     try:
         req = credit_view.get_credit_request(db, request_id)
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not req or not client or req.client_id != client.id:
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
@@ -211,14 +212,16 @@ def update_request_status(
         history = models.RequestHistory(request_id=req.id, status=req.status, timestamp=datetime.now(), reason=reason)
         db.add(history)
         db.commit()
-        from bank_credit.app.utils import send_notification
         # Improved subject and message for notification
         status_display = req.status.capitalize() if req.status.isupper() else req.status
         subject = f"Your credit request #{req.id} was {status_display.lower()}"
         message = f"The status of your credit request #{req.id} is now {status_display}."
         if reason:
             message += f" Reason: {reason}"
-        send_notification(client_id=req.client_id, subject=subject, message=message)
+
+
+        send_notification_email(current_user.email, subject=subject, body=message)
+        send_notification(db=db, client_id=req.client_id, subject=subject, message=message)
         logger.info(f"Status atualizado com sucesso para o pedido {req.id}")
         return req
     except Exception as e:

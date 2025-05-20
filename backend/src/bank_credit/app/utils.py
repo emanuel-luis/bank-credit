@@ -9,35 +9,27 @@ from bank_credit.app.database import SessionLocal
 from bank_credit.app import models
 
 
-def send_notification(client_id: int, subject: str, message: str):
+def send_notification(db: Session, client_id: int, subject: str, message: str):
     """
     Cria uma nova notificação para o cliente informado.
     """
-    db: Session = SessionLocal()
-    try:
-        notif = models.Notification(
-            client_id=client_id,
-            subject=subject,
-            message=message,
-            read=False,
-            created_at=datetime.now(),
-        )
-        db.add(notif)
-        db.commit()
-    finally:
-        db.close()
+    notif = models.Notification(
+        client_id=client_id,
+        subject=subject,
+        message=message,
+        read=False,
+        created_at=datetime.now(),
+    )
+    db.add(notif)
+    db.commit()
 
 
-def build_process_graph(db: Session = None) -> nx.DiGraph:
+def build_process_graph(db: Session) -> nx.DiGraph:
     """
     Constrói e retorna um grafo direcionado (networkx.DiGraph)
     a partir das definições de Processos e seus next_process_id.
     """
     close_db = False
-    if db is None:
-        db = SessionLocal()
-        close_db = True
-
     G = nx.DiGraph()
     processes = db.query(models.Process).all()
     for proc in processes:
@@ -50,14 +42,13 @@ def build_process_graph(db: Session = None) -> nx.DiGraph:
     return G
 
 
-def schedule_sla_alert(request_id: int, sla_days: int):
+def schedule_sla_alert(db: Session, request_id: int, sla_days: int):
     """
     Agenda um alerta para verificar SLA ultrapassado após `sla_days` dias.
     Será executado em background via threading.Timer.
     """
 
     def _alert():
-        db: Session = SessionLocal()
         try:
             req = db.query(models.CreditRequest).get(request_id)
             if not req:
