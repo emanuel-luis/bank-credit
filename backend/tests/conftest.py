@@ -4,12 +4,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from datetime import date
+from datetime import date, datetime
 
+from faker import Faker
 from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
 from bank_credit.app.routers.auth import create_access_token
-from bank_credit.app.models import Client
+from bank_credit.app.models import Employee, User, Client
 from bank_credit.app.routers.auth import get_password_hash
 
 # Configurar ambiente de teste
@@ -17,12 +18,10 @@ os.environ["TESTING"] = "true"
 
 
 # Configuração do banco de dados de teste
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -39,7 +38,7 @@ def db():
 
 
 @pytest.fixture(scope="function")
-def client(db):
+def test_app(db):
     def override_get_db():
         yield db
 
@@ -50,28 +49,77 @@ def client(db):
 
 
 @pytest.fixture(scope="function")
-def test_user(db):
-    user = Client(
-        cnpj="12345678000199",
-        full_name="Test User",
-        birth_date=date.fromisoformat("1990-01-01"),
-        phone="11912345678",
-        email="test_user@example.com",
+def client(db, faker):
+    user = User(
+        full_name=faker.name(),
+        phone=faker.msisdn()[0:11],
+        email=faker.unique.email(),
         hashed_password=get_password_hash("test_password"),
         is_active=True,
+        is_superuser=False,
+        created_at=date.today(),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
-
-
-@pytest.fixture(scope="function")
-def test_user_token(test_user):
-    return create_access_token(data={"sub": test_user.email})
-
-
-@pytest.fixture(scope="function")
-def authorized_client(client, test_user_token):
-    client.headers = {**client.headers, "Authorization": f"Bearer {test_user_token}"}
+    client = Client(
+        user_id=user.id,
+        cnpj=faker.unique.cnpj(),
+        nome_fantasia=faker.company(),
+        razao_social=faker.company_suffix(),
+        cnae_principal="6201-5/01",
+        cnae_principal_desc="Desenvolvimento de programas de computador sob encomenda",
+        natureza_juridica="2062",
+        natureza_juridica_desc="Sociedade Empresária Limitada",
+        logradouro=faker.street_name(),
+        numero=faker.building_number(),
+        cep=faker.postcode().replace("-", ""),
+        bairro=faker.bairro(),
+        municipio=faker.city(),
+        uf=faker.estado_sigla(),
+    )
+    db.add(client)
+    db.commit()
+    db.refresh(client)
     return client
+
+
+@pytest.fixture(scope="function")
+def bearer_token(client):
+    return create_access_token(data={"sub": client.user.email})
+
+
+@pytest.fixture(scope="function")
+def authorized_user(test_app, bearer_token):
+    test_app.headers = {**test_app.headers, "Authorization": f"Bearer {bearer_token}"}
+    return test_app
+
+
+@pytest.fixture(scope="function")
+def faker():
+    return Faker("pt_BR")
+
+
+@pytest.fixture(scope="function")
+def employee(db):
+    user = User(
+        full_name="Funcionario Teste",
+        phone="11987654321",
+        email="funcionario@empresa.com.br",
+        hashed_password="hash",
+        is_active=True,
+        is_superuser=False,
+        created_at=datetime.now(),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    employee = Employee(
+        user_id=user.id,
+        matricula="EMP001",
+        cpf="12345678901",
+    )
+    db.add(employee)
+    db.commit()
+    db.refresh(employee)
+    return employee

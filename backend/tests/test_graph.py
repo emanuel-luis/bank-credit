@@ -17,8 +17,8 @@ def process(db):
     return process
 
 
-def test_get_process_graph(authorized_client, db, process):
-    response = authorized_client.get("/graph/")
+def test_get_process_graph(authorized_user, db, process):
+    response = authorized_user.get("/graph/")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "nodes" in data
@@ -27,8 +27,8 @@ def test_get_process_graph(authorized_client, db, process):
     assert any("Test Sector" in node["sectors"] for node in data["nodes"])
 
 
-def test_visualize_process_graph(authorized_client, db, process):
-    response = authorized_client.get("/graph/visualize")
+def test_visualize_process_graph(authorized_user, db, process):
+    response = authorized_user.get("/graph/visualize")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "nodes" in data

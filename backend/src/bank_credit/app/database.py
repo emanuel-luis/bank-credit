@@ -9,18 +9,17 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 load_dotenv()
 
 # URL de conexão do banco de dados
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bank_credit.db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Cria o engine do SQLAlchemy
-# connect_args é necessário apenas para SQLite
-connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # Cria uma classe SessionLocal que gerencia as sessões do banco
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=True, bind=engine)
 
 # Base declarativa para todos os modelos
 Base = declarative_base()
+# Base.metadata.create_all(bind=engine)
 
 
 def get_db():

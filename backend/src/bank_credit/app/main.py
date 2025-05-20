@@ -1,4 +1,5 @@
 # app/main.py
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +11,17 @@ from bank_credit.app.routers.notification import router as notification_router
 import uvicorn
 
 # Cria todas as tabelas no banco de dados
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gerenciador de contexto para o ciclo de vida da aplicação.
+    Cria as tabelas no banco de dados ao iniciar a aplicação.
+    """
+    # Cria todas as tabelas no banco de dados
+    Base.metadata.create_all(bind=engine)
+    yield
+    # Aqui você pode adicionar lógica para limpar ou fechar conexões, se necessário
 
 app = FastAPI(
     title="API de Solicitação de Crédito",

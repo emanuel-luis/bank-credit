@@ -4,10 +4,14 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import networkx as nx
+import logging
 
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app import crud, models
+from bank_credit.app.views import utils as utils_view
+
+logger = logging.getLogger("bank_credit.routers.graph")
 
 router = APIRouter()
 
@@ -17,36 +21,33 @@ def get_process_graph(
     db: Session = Depends(get_db),
     current_user: models.Client = Depends(get_current_active_user),
 ):
-    """
-    Retorna a configuração completa do grafo de processos:
-    - nodes: lista de processos (id, nome, processo seguinte, setores envolvidos)
-    - edges: lista de arestas (de -> para)
-    """
-    # Apenas usuários autenticados podem ver a configuração do grafo
-    G: nx.DiGraph = crud.get_process_graph_data(db)
-
-    # Monta lista de nós com atributos
-    nodes = []
-    for pid in G.nodes:
-        proc: models.Process = db.query(models.Process).get(pid)
-        if not proc:
-            continue
-        sectors = [s.name for s in proc.sectors]
-        nodes.append(
-            {
-                "id": proc.id,
-                "name": proc.name,
-                "next_process_id": proc.next_process_id,
-                "sectors": sectors,
-            }
-        )
-
-    # Monta lista de arestas
-    edges = []
-    for u, v in G.edges:
-        edges.append({"from": u, "to": v})
-
-    return {"nodes": nodes, "edges": edges}
+    logger.info(f"[GET /graph] User {current_user.id}")
+    try:
+        G: nx.DiGraph = utils_view.get_process_graph_data(db)
+        nodes = []
+        for pid in G.nodes:
+            proc: models.Process = db.query(models.Process).get(pid)
+            if not proc:
+                logger.warning(f"Process node {pid} not found in DB")
+                continue
+            sectors = [s.name for s in proc.sectors]
+            nodes.append(
+                {
+                    "id": proc.id,
+                    "name": proc.name,
+                    "next_process_id": proc.next_process_id,
+                    "sectors": sectors,
+                }
+            )
+        edges = []
+        for u, v in G.edges:
+            edges.append({"from": u, "to": v})
+        logger.debug(f"Graph nodes: {nodes}")
+        logger.debug(f"Graph edges: {edges}")
+        return {"nodes": nodes, "edges": edges}
+    except Exception as e:
+        logger.error(f"Error fetching process graph: {e}")
+        raise
 
 
 @router.get("/visualize", response_class=JSONResponse, status_code=status.HTTP_200_OK)
@@ -54,23 +55,22 @@ def visualize_process_graph(
     db: Session = Depends(get_db),
     current_user: models.Client = Depends(get_current_active_user),
 ):
-    """
-    Retorna uma representação simplificada do grafo em formato compatível
-    com bibliotecas de visualização (por exemplo, vis.js).
-    """
-    G: nx.DiGraph = crud.get_process_graph_data(db)
-
-    vis_nodes = []
-    vis_edges = []
-
-    # Vis.js espera campos: id, label
-    for pid in G.nodes:
-        proc: models.Process = db.query(models.Process).get(pid)
-        if not proc:
-            continue
-        vis_nodes.append({"id": proc.id, "label": proc.name})
-
-    for u, v in G.edges:
-        vis_edges.append({"from": u, "to": v})
-
-    return {"nodes": vis_nodes, "edges": vis_edges}
+    logger.info(f"[GET /graph/visualize] User {current_user.id}")
+    try:
+        G: nx.DiGraph = utils_view.get_process_graph_data(db)
+        vis_nodes = []
+        vis_edges = []
+        for pid in G.nodes:
+            proc: models.Process = db.query(models.Process).get(pid)
+            if not proc:
+                logger.warning(f"Process node {pid} not found in DB")
+                continue
+            vis_nodes.append({"id": proc.id, "label": proc.name})
+        for u, v in G.edges:
+            vis_edges.append({"from": u, "to": v})
+        logger.debug(f"Vis.js nodes: {vis_nodes}")
+        logger.debug(f"Vis.js edges: {vis_edges}")
+        return {"nodes": vis_nodes, "edges": vis_edges}
+    except Exception as e:
+        logger.error(f"Error visualizing process graph: {e}")
+        raise
