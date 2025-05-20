@@ -16,3 +16,4 @@ wheels/
 .vscode/
 scratch/*
 !scratch/.gitkeep
+.log

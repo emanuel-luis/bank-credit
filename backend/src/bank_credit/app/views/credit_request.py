@@ -59,6 +59,12 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
             logger.debug(f"[create_credit_request] Checklist completo. Status definido como CHECKLIST_OK.")
     now = datetime.now()
     deliver_date = req_in.deliver_date
+
+    # Find the first process (the one that is not referenced as next_process_id by any other process)
+    first_process = db.query(models.Process).filter(~models.Process.id.in_(db.query(models.Process.next_process_id).filter(models.Process.next_process_id != None))).first()
+    if not first_process:
+        raise Exception("Nenhum processo inicial encontrado na base de dados.")
+
     db_req = models.CreditRequest(
         client_id=client.id,
         amount=float(req_in.amount),
@@ -66,6 +72,7 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
         created_at=now,
         updated_at=now,
         deliver_date=deliver_date,
+        current_process_id=first_process.id,
     )
     db.add(db_req)
     db.commit()

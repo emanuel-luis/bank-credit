@@ -212,8 +212,10 @@ def update_request_status(
         db.add(history)
         db.commit()
         from bank_credit.app.utils import send_notification
-        subject = f"Status update for request #{req.id}"  # Always contains 'status'
-        message = f"The status of your credit request #{req.id} is {req.status}."
+        # Improved subject and message for notification
+        status_display = req.status.capitalize() if req.status.isupper() else req.status
+        subject = f"Your credit request #{req.id} was {status_display.lower()}"
+        message = f"The status of your credit request #{req.id} is now {status_display}."
         if reason:
             message += f" Reason: {reason}"
         send_notification(client_id=req.client_id, subject=subject, message=message)

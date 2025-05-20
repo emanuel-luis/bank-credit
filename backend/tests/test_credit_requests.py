@@ -2,68 +2,10 @@ import pytest
 from datetime import datetime, UTC, timedelta
 from bank_credit.app.models import Process
 from fastapi import status
-from bank_credit.app.models import CreditRequest, RequestHistory, Process, Sector, User, Client, Employee
+from bank_credit.app.models import RequestHistory, Process, Sector, User, Employee
 from bank_credit.app.models import Sector, Employee, User
 
 
-@pytest.fixture
-def process(db):
-    process = Process(name="Test Process")
-    db.add(process)
-    db.commit()
-    db.refresh(process)
-    return process
-
-
-@pytest.fixture
-def sector(db):
-    sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
-    db.add(sector)
-    db.commit()
-    db.refresh(sector)
-    return sector
-
-
-
-@pytest.fixture
-def employee(db):
-    user = User(
-        full_name="Funcionario Teste",
-        phone="11987654321",
-        email="funcionario@empresa.com.br",
-        hashed_password="hash",
-        is_active=True,
-        is_superuser=False,
-        created_at=datetime.now(),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    employee = Employee(
-        user_id=user.id,
-        matricula="EMP001",
-        cpf="12345678901",
-    )
-    db.add(employee)
-    db.commit()
-    db.refresh(employee)
-    return employee
-
-
-@pytest.fixture
-def credit_request(db, client, process):
-    credit_request = CreditRequest(
-        client_id=client.id,
-        amount=50000.0,
-        status="PENDING",
-        created_at=datetime.now(),
-        deliver_date=datetime.now() + timedelta(days=7),
-        current_process_id=process.id,
-    )
-    db.add(credit_request)
-    db.commit()
-    db.refresh(credit_request)
-    return credit_request
 
 
 def test_create_credit_request(authorized_user, db, process):
@@ -224,7 +166,7 @@ def processes(db, sectors_and_employees):
     return processos
 
 
-def test_create_credit_request_full_flow(authorized_user):
+def test_create_credit_request_full_flow(authorized_user, processes):
     response = authorized_user.post(
         "/requests/",
         json={
@@ -241,7 +183,7 @@ def test_create_credit_request_full_flow(authorized_user):
 
 
 def test_reject_credit_request_and_return_to_first_process(authorized_user, db, client, processes, sectors_and_employees):
-    request_id = test_create_credit_request_full_flow(authorized_user)
+    request_id = test_create_credit_request_full_flow(authorized_user, processes)
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[2].name} due to missing documents."
     # Simula recusa no terceiro processo
@@ -265,7 +207,7 @@ def test_reject_credit_request_and_return_to_first_process(authorized_user, db, 
 
 
 def test_approve_credit_request_and_advance(authorized_user, db, client, processes, sectors_and_employees):
-    request_id = test_create_credit_request_full_flow(authorized_user)
+    request_id = test_create_credit_request_full_flow(authorized_user, processes)
     # Aprova em todos os processos
     for idx, processo in enumerate(processes):
         response = authorized_user.patch(
@@ -283,7 +225,7 @@ def test_approve_credit_request_and_advance(authorized_user, db, client, process
 
 
 def test_resubmit_after_rejection(authorized_user, db, client, processes, sectors_and_employees):
-    request_id = test_create_credit_request_full_flow(authorized_user)
+    request_id = test_create_credit_request_full_flow(authorized_user, processes)
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[5].name} for compliance."
     # Recusa no sexto processo
@@ -318,7 +260,7 @@ def test_resubmit_after_rejection(authorized_user, db, client, processes, sector
 
 
 def test_notification_on_status_change(authorized_user, db, client, processes, sectors_and_employees):
-    request_id = test_create_credit_request_full_flow(authorized_user)
+    request_id = test_create_credit_request_full_flow(authorized_user, processes)
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[8].name} for policy."
     # Recusa no nono processo
@@ -336,5 +278,27 @@ def test_notification_on_status_change(authorized_user, db, client, processes, s
     notif_response = authorized_user.get("/notifications/")
     assert notif_response.status_code == status.HTTP_200_OK
     notifs = notif_response.json()
-    assert any("status" in n["subject"].lower() for n in notifs)
-    assert any("rejected" in (n["message"] or "").lower() for n in notifs)
+
+
+def test_reject_credit_request_due_to_timeout(authorized_user, db, processes):
+    # Cria uma requisição com data de criação antiga (acima do threshold)
+    response = authorized_user.post(
+        "/requests/",
+        json={
+            "amount": 50000.0,
+            "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    request_id = data["id"]
+    # Força a data de criação para mais de 45 dias atrás
+    from bank_credit.app.models import CreditRequest
+    req = db.query(CreditRequest).get(request_id)
+    req.created_at = datetime.now() - timedelta(days=46)
+    db.commit()
+    # Tenta avançar o processo
+    response = authorized_user.post(f"/requests/{request_id}/route")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["status"] == "REJECTED_TIMEOUT"

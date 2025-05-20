@@ -4,13 +4,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from faker import Faker
 from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
 from bank_credit.app.routers.auth import create_access_token
-from bank_credit.app.models import Employee, User, Client
+from bank_credit.app.models import CreditRequest, Process, Sector, User, Client, Employee
 from bank_credit.app.routers.auth import get_password_hash
 
 # Configurar ambiente de teste
@@ -123,3 +123,40 @@ def employee(db):
     db.commit()
     db.refresh(employee)
     return employee
+
+
+@pytest.fixture(scope="function")
+def process(db):
+    """
+    Ensure at least one initial Process exists for tests that require it.
+    """
+    process = Process(name="Initial Process")
+    db.add(process)
+    db.commit()
+    db.refresh(process)
+    return process
+
+@pytest.fixture(scope="function")
+def sector(db):
+    sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
+    db.add(sector)
+    db.commit()
+    db.refresh(sector)
+    return sector
+
+
+
+@pytest.fixture(scope="function")
+def credit_request(db, client, process):
+    credit_request = CreditRequest(
+        client_id=client.id,
+        amount=50000.0,
+        status="PENDING",
+        created_at=datetime.now(),
+        deliver_date=datetime.now() + timedelta(days=7),
+        current_process_id=process.id,
+    )
+    db.add(credit_request)
+    db.commit()
+    db.refresh(credit_request)
+    return credit_request
