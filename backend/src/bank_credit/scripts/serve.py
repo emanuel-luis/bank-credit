@@ -19,6 +19,7 @@ def main():
         "--reload",
         action="store_true",
         help="Enable auto-reload for development",
+        default=True
     )
     args = parser.parse_args()
     uvicorn.run("bank_credit.app.main:app", host=args.host, port=args.port, reload=args.reload)

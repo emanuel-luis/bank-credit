@@ -48,7 +48,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             sla_days = random.randint(1, 10)
             require_all = random.choice([True, False])
             # Cria funcionário gerente
-            email = fake.unique.email()
+            email = f"{i}@funcionario.com"
             if i == 0:
                 email = "admin@admin.com"
             user = User(
@@ -74,7 +74,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
                 limit=limit,
                 sla_days=sla_days,
                 require_all=require_all,
-                manager_id=employee.id
+                # manager_id=employee.id
             )
             db.add(sector)
             db.commit()
@@ -113,8 +113,8 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             user = User(
                 full_name=fake.name(),
                 phone=fake.msisdn()[0:11],
-                email=fake.unique.email(),
-                hashed_password=get_password_hash("teste@12345"),
+                email=f"{i+1}@cliente.com",
+                hashed_password=get_password_hash("123"),
                 is_active=True,
                 is_superuser=False,
                 created_at=datetime.now(),
