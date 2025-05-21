@@ -60,7 +60,13 @@ class User(Base):
     client = relationship("Client", uselist=False, back_populates="user")
     employee = relationship("Employee", uselist=False, back_populates="user")
 
+    @property
+    def is_client(self):
+        return self.client is not None
 
+    @property
+    def is_employee(self):
+        return self.employee is not None
 class Client(Base):
     def __str__(self):
         return f"Client {self.id} - {self.nome_fantasia} - {self.cnpj} - ({self.user})"

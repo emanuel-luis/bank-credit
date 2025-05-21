@@ -37,5 +37,5 @@ dev = [
 ]
 
 [project.scripts]
-serve = "bank_credit:main"
+serve = "bank_credit.scripts.serve:main"
 populate = "bank_credit.scripts.populate:main"

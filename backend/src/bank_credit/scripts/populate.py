@@ -41,27 +41,30 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
         sector_objs = []
         employee_objs = []
         logger.info(f"Populando setores: {sectors} setor(es)")
-        for i in range(sectors):
+        for i in range(sectors+1):
             logger.info(f"Populando setor {i+1}/{sectors}")
             sector_name = fake.unique.job()[:30]
             limit = random.randint(1000, 100000)
             sla_days = random.randint(1, 10)
             require_all = random.choice([True, False])
             # Cria funcionário gerente
+            email = fake.unique.email()
+            if i == 0:
+                email = "admin@admin.com"
             user = User(
                 full_name=fake.name(),
                 phone=fake.msisdn()[0:11],
-                email=fake.unique.email(),
-                hashed_password=get_password_hash("teste@12345"),
+                email=email,
+                hashed_password=get_password_hash("123"),
                 is_active=True,
-                is_superuser=False,
+                is_superuser=i == 0,
                 created_at=datetime.now(),
             )
             db.add(user)
             db.commit()
             employee = Employee(
                 user_id=user.id,
-                matricula=f"EMP{i+1:03d}",
+                matricula=f"EMP{i:03d}",
                 cpf=fake.cpf(),
             )
             db.add(employee)
