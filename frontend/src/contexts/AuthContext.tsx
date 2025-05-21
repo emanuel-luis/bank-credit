@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import api from '../api';
 
 export type UserRole = 'customer' | 'staff' | 'manager' | 'admin';
 
@@ -20,76 +21,53 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data for demonstration
-const MOCK_USERS = [
-  {
-    id: '1',
-    email: 'customer@example.com',
-    password: 'password',
-    name: 'João Silva',
-    role: 'customer' as UserRole,
-  },
-  {
-    id: '2',
-    email: 'staff@example.com',
-    password: 'password',
-    name: 'Maria Santos',
-    role: 'staff' as UserRole,
-    department: 'Microenterprise',
-  },
-  {
-    id: '3',
-    email: 'manager@example.com',
-    password: 'password',
-    name: 'Carlos Oliveira',
-    role: 'manager' as UserRole,
-    department: 'Large Business',
-  },
-  {
-    id: '4',
-    email: 'admin@example.com',
-    password: 'password',
-    name: 'Ana Pereira',
-    role: 'admin' as UserRole,
-  },
-];
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const storedToken = localStorage.getItem('access_token');
+    if (storedToken) {
+      api.get('/auth/me')
+        .then(res => {
+          setUser(res.data);
+        })
+        .catch(() => {
+          setUser(null);
+          localStorage.removeItem('access_token');
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
-    // In a real application, this would be an API call
-    // Simulate API request delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const foundUser = MOCK_USERS.find(u => u.email === email && u.password === password);
-    
-    if (!foundUser) {
+    try {
+      const params = new URLSearchParams();
+      params.append('username', email);
+      params.append('password', password);
+      const res = await api.post('/auth/token', params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+      localStorage.setItem('access_token', res.data.access_token);
+      const me = await api.get('/auth/me');
+      setUser(me.data);
+      localStorage.setItem('user', JSON.stringify(me.data));
+    } catch (err) {
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      throw err;
+    } finally {
       setIsLoading(false);
-      throw new Error('Invalid credentials');
     }
-    
-    const { password: _, ...userWithoutPassword } = foundUser;
-    
-    setUser(userWithoutPassword);
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-    setIsLoading(false);
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('access_token');
     localStorage.removeItem('user');
   };
 
