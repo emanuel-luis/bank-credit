@@ -132,12 +132,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="flex items-center">
                   <div className="bg-gray-200 rounded-full h-10 w-10 flex items-center justify-center">
                     <span className="text-gray-600 font-medium">
-                      {user.name.split(' ').map(n => n[0]).join('')}
+                      {user.full_name.split('').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div className="ml-3">
                     <p className="text-base font-medium text-gray-700 group-hover:text-gray-900">
-                      {user.name}
+                      {user.full_name}
                     </p>
                     <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700">
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
@@ -190,12 +190,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex items-center">
                 <div className="bg-gray-200 rounded-full h-9 w-9 flex items-center justify-center">
                   <span className="text-gray-600 font-medium">
-                    {user.name.split(' ').map(n => n[0]).join('')}
+                    {user.full_name.split(' ').map(n => n[0]).join('')}
                   </span>
                 </div>
                 <div className="ml-3 flex flex-col flex-grow min-w-0">
                   <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900 truncate">
-                    {user.name}
+                    {user.full_name}
                   </p>
                   <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}

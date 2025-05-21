@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 // Layouts
 import DashboardLayout from '../components/layout/DashboardLayout';
+import RegisterClient from '../pages/auth/RegisterClient';
 
 // Auth
 const Login = lazy(() => import('../pages/auth/Login'));
@@ -76,6 +77,7 @@ export default function AppRoutes() {
       <Routes>
         {/* Auth routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register-client" element={<RegisterClient />} />
         
         {/* Customer routes */}
         <Route path="/customer" element={

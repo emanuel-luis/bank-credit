@@ -155,6 +155,16 @@ export default function Login() {
               >
                 Sign in
               </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full flex justify-center py-2 px-4 mt-2"
+                onClick={() => navigate('/register-client')}
+              >
+                Sign up
+              </Button>
+
             </div>
           </form>
 
