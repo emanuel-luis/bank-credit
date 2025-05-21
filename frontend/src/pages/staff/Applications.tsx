@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import ApplicationCard from '../../components/loan/ApplicationCard';
 import Button from '../../components/ui/Button';
 import { useMockApplication } from '../../context/mockdata';
+import { getCentral } from '../customer/NewApplication';
 
 const PAGE_SIZE = 6;
 
@@ -113,13 +114,13 @@ export default function Applications() {
                   key={application.id}
                   {...application}
                   status={application.status}
-                  companyName={application.companyName || '-'}
-                  contactName={application.contactName}
-                  cnpj={application.cnpj}
+                  companyName={(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
+                  contactName={application.client?.user?.full_name}
+                  cnpj={application.client?.cnpj}
                   purpose={application.purpose}
                   term={application.term}
                   submittedAt={application.created_at}
-                  central={application.central || '-'}
+                  central={getCentral(application.amount) || '-'}
                   onViewDetails={(id) => navigate(`/staff/applications/${id}`)}
                 />
               ))

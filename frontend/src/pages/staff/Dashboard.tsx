@@ -371,7 +371,7 @@ export default function StaffDashboard() {
                       return (
                         <tr key={application.id} className="hover:bg-gray-50">
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="font-medium text-gray-900">{application.companyName}</div>
+                            <div className="font-medium text-gray-900">{(application.client?.nome_fantasia + application.client?.razao_social) || '-'}</div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">{application.title || '-'}</div>

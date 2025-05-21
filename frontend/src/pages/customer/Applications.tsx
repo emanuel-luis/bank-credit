@@ -5,6 +5,7 @@ import { FilePlus, Filter, Search, FileText } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useMockApplication } from '../../context/mockdata';
+import { getCentral } from './NewApplication';
 
 // Função utilitária para formatar datas
 function formatDate(dateStr?: string) {
@@ -158,7 +159,7 @@ export default function CustomerApplications() {
                       <CardTitle className="text-base font-semibold text-primary-700 flex flex-col">
                         Solicitação #{app.id}
                         <span className="text-sm font-normal text-gray-600 mt-1">
-                          {app.companyName || '-'}
+                          {app.client?.nome_fantasia + app.client?.razao_social || '-'}
                         </span>
                       </CardTitle>
                     </CardHeader>
@@ -177,11 +178,11 @@ export default function CustomerApplications() {
                       </div>
                       <div>
                         <span className="font-medium">CNPJ: </span>
-                        {app.cnpj || '-'}
+                        {app.client?.cnpj || '-'}
                       </div>
                       <div>
                         <span className="font-medium">Central: </span>
-                        {app.central || '-'}
+                        {getCentral(app.amount) || '-'}
                       </div>
                     </CardContent>
                     <div className="p-4 pt-0">

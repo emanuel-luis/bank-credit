@@ -75,7 +75,7 @@ class User(Base):
             return "customer"
         elif self.is_employee:
             return "staff"
-    
+
 class Client(Base):
     def __str__(self):
         return f"Client {self.id} - {self.nome_fantasia} - {self.cnpj} - ({self.user})"
@@ -164,11 +164,12 @@ class CreditRequest(Base):
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id"))
     amount = Column(Float, nullable=False)
+    purpose = Column(String, nullable=False)
     status = Column(String, default="PENDING")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deliver_date = Column(DateTime, nullable=False)
-
+    term = Column(Integer, nullable=False)  # in days
     # Current process pointer
     current_process_id = Column(Integer, ForeignKey("processes.id"), nullable=True)
 

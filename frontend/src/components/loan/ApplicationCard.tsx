@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileClock, Calendar, DollarSign, Building, AlertCircle } from 'lucide-react';
+import { FileClock, Calendar, DollarSign, Building, AlertCircle, NotebookPen } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '../ui/Card';
 import ApplicationStatusBadge, { ApplicationStatus } from './ApplicationStatusBadge';
 import Button from '../ui/Button';
@@ -45,6 +45,7 @@ export default function ApplicationCard({
   status,
   companyName,
   amount,
+  purpose,
   department,
   central, // Adicione se quiser receber central como prop
   submittedAt,
@@ -61,17 +62,23 @@ export default function ApplicationCard({
           </h3>
           <ApplicationStatusBadge status={status} />
         </div>
-        
+
         <div className="space-y-3">
           <div className="flex items-center text-gray-500">
             <DollarSign className="h-4 w-4 mr-2 flex-shrink-0" />
             <span className="font-medium text-gray-700">{formatCurrency(amount)}</span>
           </div>
-          
+
           {department && (
             <div className="flex items-center text-gray-500">
               <Building className="h-4 w-4 mr-2 flex-shrink-0" />
               <span>Departamento: {department}</span>
+            </div>
+          )}
+          {purpose && (
+            <div className="flex items-center text-gray-500">
+              <NotebookPen className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span>Finalidade: {purpose}</span>
             </div>
           )}
 
@@ -81,12 +88,12 @@ export default function ApplicationCard({
               <span>Central: {central}</span>
             </div>
           )}
-          
+
           <div className="flex items-center text-gray-500">
             <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
             <span>Enviado em {formatDate(submittedAt)}</span>
           </div>
-          
+
           {deadline && (
             <div className="flex items-center text-gray-500">
               <FileClock className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -95,7 +102,7 @@ export default function ApplicationCard({
               </span>
             </div>
           )}
-          
+
           {hasSlaWarning && (
             <div className="flex items-center text-error-600">
               <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -104,7 +111,7 @@ export default function ApplicationCard({
           )}
         </div>
       </CardContent>
-      
+
       <CardFooter>
         <Button
           variant="outline"

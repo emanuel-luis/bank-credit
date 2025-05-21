@@ -105,7 +105,7 @@ export default function CustomerDashboard() {
                   <ApplicationCard
                     key={application.id}
                     {...application}
-                    companyName={application.companyName}
+                    companyName={(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
                     submittedAt={application.created_at}
                     onViewDetails={(id) => navigate(`/customer/applications/${id}`)}
                   />
@@ -155,7 +155,7 @@ export default function CustomerDashboard() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="mr-4 rounded-full bg-yellow-100 p-2">
@@ -167,7 +167,7 @@ export default function CustomerDashboard() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="mr-4 rounded-full bg-green-100 p-2">
@@ -189,9 +189,9 @@ export default function CustomerDashboard() {
               </CardHeader>
               <CardContent>
                 <nav className="space-y-1">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-between" 
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between"
                     onClick={() => navigate('/customer/applications/new')}
                   >
                     <span className="flex items-center">
@@ -200,9 +200,9 @@ export default function CustomerDashboard() {
                     </span>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-between" 
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between"
                     onClick={() => navigate('/customer/applications')}
                   >
                     <span className="flex items-center">

@@ -4,8 +4,9 @@ import { Card } from '../../components/ui/Card';
 import ApplicationStatusBadge from '../../components/loan/ApplicationStatusBadge';
 import Button from '../../components/ui/Button';
 import { useMockApplication } from '../../context/mockdata';
+import { getCentral } from '../customer/NewApplication';
 
-// Diálogo de confirmação em português
+
 function ConfirmDialog({
   open,
   onConfirm,
@@ -197,13 +198,13 @@ export default function ApplicationDetails() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Nome do Solicitante</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {application.applicantName || application.contactName || '-'}
+                    {application.client?.user?.full_name || '-'}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Nome da Empresa</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {application.companyName || application.company_name || '-'}
+                    {(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
                   </dd>
                 </div>
                 <div>
@@ -235,7 +236,7 @@ export default function ApplicationDetails() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Central</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {application.central || '-'}
+                    {getCentral(application.amount) || '-'}
                   </dd>
                 </div>
                 <div>

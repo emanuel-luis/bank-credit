@@ -22,6 +22,13 @@ type ApplicationFormData = {
   departamento?: string;
 };
 
+export function getCentral(amount: number) {
+  if (amount < 4800000) {
+    return 'Central de Varejo';
+  }
+  return 'Central de Médio e Grande';
+}
+
 export default function CustomerNewApplication() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -55,18 +62,15 @@ export default function CustomerNewApplication() {
     return date.toISOString().replace(/Z$/, '');
   }
 
-  function getCentral(amount: number) {
-    if (amount < 4800000) {
-      return 'Central de Varejo';
-    }
-    return 'Central de Médio e Grande';
-  }
+
 
   function splitFormData(values: ApplicationFormData) {
     // Dados que vão para a API
     const apiData = {
       amount: values.amount,
       deliver_date: formatDateNoZ(new Date()),
+      purpose: values.purpose,
+      term: values.term,
       checklist: []
     };
     // Dados mockados (não enviados para a API)
@@ -76,8 +80,6 @@ export default function CustomerNewApplication() {
       contactName: values.contactName,
       contactEmail: values.contactEmail,
       contactPhone: values.contactPhone,
-      purpose: values.purpose,
-      term: values.term,
       documents: values.documents || [],
       departamento: values.departamento || '', // mantém o campo original se houver
       central: getCentral(values.amount),      // novo campo "Central"

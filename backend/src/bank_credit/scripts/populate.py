@@ -78,6 +78,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(sector)
             db.commit()
+            db.refresh(sector)
             sector_objs.append(sector)
             employee_objs.append(employee)
             logger.info(f"Setor {i+1}/{sectors} adicionado: {sector}")
@@ -95,6 +96,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             chosen = random.sample(sector_objs, n_sec)
             proc.sectors.extend(chosen)
             db.commit()
+            db.refresh(proc)
             process_objs.append(proc)
             logger.info(f"Processo {i+1}/{processes} adicionado")
         # Liga processos em cadeia, mas com saltos orgânicos
@@ -104,6 +106,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             jump = random.randint(1, min(2, len(process_objs)-i-1))
             proc.next_process_id = process_objs[i+jump].id
             db.commit()
+            db.refresh(proc)
             logger.info(f"Processo {proc.name} conectado com {process_objs[i+jump].name}")
         # Clientes
         client_objs = []
@@ -121,6 +124,7 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(user)
             db.commit()
+            db.refresh(user)
             client = Client(
                 user_id=user.id,
                 cnpj=fake.unique.cnpj(),
@@ -139,45 +143,53 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(client)
             db.commit()
+            db.refresh(client)
             client_objs.append(client)
             logger.info(f"Cliente {i+1}/{clients} adicionado")
         # Solicitações de crédito orgânicas
-        for client in random.sample(client_objs, min(30, len(client_objs))):
+        for client in client_objs:
             logger.info(f"Populando solicitação de crédito para cliente {client.nome_fantasia}")
-            amount = random.randint(1000, 200000)
-            status = random.choice(["PENDING", "APPROVED", "REJECTED"])
-            created_at = datetime.now() - timedelta(days=random.randint(0, 60))
-            deliver_date = created_at + timedelta(days=random.randint(5, 30))
-            process = random.choice(process_objs)
-            req = CreditRequest(
-                client_id=client.id,
-                amount=amount,
-                status=status,
-                created_at=created_at,
-                deliver_date=deliver_date,
-                current_process_id=process.id,
-            )
-            db.add(req)
-            db.commit()
-            # Histórico
-            hist = RequestHistory(
-                request_id=req.id,
-                status=status,
-                timestamp=created_at,
-            )
-            db.add(hist)
-            db.commit()
-            # Notificações
-            notif = Notification(
-                client_id=client.id,
-                subject="Solicitação de crédito",
-                message=f"Sua solicitação de R$ {amount} está com status: {status}",
-                read=random.choice([True, False]),
-                created_at=created_at,
-            )
-            db.add(notif)
-            db.commit()
-            logger.info(f"Solicitação de crédito {req.id} e status {req.status} adicionada para cliente {client.nome_fantasia}")
+            for i in range(fake.random_int(min=1, max=35)):
+                amount = random.randint(1000, 200000)
+                status = random.choice(["PENDING", "APPROVED", "REJECTED"])
+                created_at = fake.date_time_between(start_date='-15d', end_date='now')
+                # datetime.now() - timedelta(days=random.randint(0, 60))
+                deliver_date = created_at + timedelta(days=random.randint(5, 30))
+                process = random.choice(process_objs)
+                req = CreditRequest(
+                    client_id=client.id,
+                    amount=amount,
+                    status=status,
+                    term=fake.random_int(min=1, max=40),
+                    purpose=fake.sentence(),
+                    created_at=created_at,
+                    deliver_date=deliver_date,
+                    current_process_id=process.id,
+                )
+                db.add(req)
+                db.commit()
+                db.refresh(req)
+                # Histórico
+                hist = RequestHistory(
+                    request_id=req.id,
+                    status=status,
+                    timestamp=created_at,
+                )
+                db.add(hist)
+                db.commit()
+                db.refresh(hist)
+                # Notificações
+                notif = Notification(
+                    client_id=client.id,
+                    subject="Solicitação de crédito",
+                    message=f"Sua solicitação de R$ {amount} está com status: {status}",
+                    read=random.choice([True, False]),
+                    created_at=created_at,
+                )
+                db.add(notif)
+                db.commit()
+                db.refresh(notif)
+                logger.info(f"Solicitação de crédito {req.id} e status {req.status} adicionada para cliente {client.nome_fantasia}")
         logger.info(f"População concluída: {len(client_objs)} clientes, {len(sector_objs)} setores, {len(process_objs)} processos.")
     except IntegrityError as e:
         logger.info(f"Erro de integridade: {e}")

@@ -14,6 +14,7 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import ApplicationStatusBadge from '../../components/loan/ApplicationStatusBadge';
 import { useMockApplication } from '../../context/mockdata';
+import { getCentral } from './NewApplication';
 
 // Função para formatar moeda
 const formatCurrency = (value: number) => {
@@ -72,14 +73,13 @@ export default function CustomerApplicationDetails() {
   const safeStatus = validStatuses.includes(application.status) ? application.status : 'PENDING';
 
   // Usa os dados da API, e se não vier, usa do formulário mockado salvo no contexto
-  const companyName = application.company_name || formData?.companyName || '-';
-  const cnpj = application.cnpj || formData?.cnpj || '-';
-  const contactName = application.contact_name || formData?.contactName || '-';
-  const contactEmail = application.contact_email || formData?.contactEmail || '-';
-  const contactPhone = application.contact_phone || formData?.contactPhone || '-';
-  const purpose = application.purpose || formData?.purpose || '-';
+  const companyName = (application.client?.nome_fantasia + application.client?.razao_social) || formData?.companyName || '-';
+  const cnpj = application.client?.cnpj || formData?.cnpj || '-';
+  const contactName = application.client?.user?.full_name || formData?.contactName || '-';
+  const contactEmail = application.client?.user?.email || formData?.contactEmail || '-';
+  const contactPhone = application.client?.user?.phone || formData?.contactPhone || '-';
   const term = application.term || formData?.term || '-';
-  const department = formData?.departamento || formData?.stage || application.department || '-';
+  const department = getCentral(application.amount) || formData?.stage || application.department || '-';
 
   return (
     <div className="space-y-6">
@@ -116,7 +116,7 @@ export default function CustomerApplicationDetails() {
               <CardTitle>
                 Solicitação #{application.id}
                 <span className="block text-sm font-normal text-gray-500 mt-1">
-                  {companyName}
+                  {application.client?.nome_fantasia + application.client?.razao_social}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -130,17 +130,17 @@ export default function CustomerApplicationDetails() {
                   <div className="space-y-2">
                     <div>
                       <span className="text-sm text-gray-500">Nome</span>
-                      <div className="font-semibold">{companyName}</div>
+                      <div className="font-semibold">{application.client?.nome_fantasia + application.client?.razao_social}</div>
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">CNPJ</span>
-                      <div className="font-semibold">{cnpj}</div>
+                      <div className="font-semibold">{application.client?.cnpj}</div>
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">Contato</span>
-                      <div className="font-semibold">{contactName}</div>
-                      <div className="text-sm">{contactEmail}</div>
-                      <div className="text-sm">{contactPhone}</div>
+                      <div className="font-semibold">{application.client?.user?.full_name}</div>
+                      <div className="text-sm">{application.client?.user?.email}</div>
+                      <div className="text-sm">{application.client?.user?.phone}</div>
                     </div>
                   </div>
                 </div>
@@ -156,7 +156,7 @@ export default function CustomerApplicationDetails() {
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">Finalidade</span>
-                      <div className="font-semibold">{purpose}</div>
+                      <div className="font-semibold">{application.purpose}</div>
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">Prazo</span>
@@ -246,7 +246,7 @@ export default function CustomerApplicationDetails() {
                     <div>
                       <span className="text-xs text-gray-500">Parcelas</span>
                       <div className="font-semibold text-gray-900">
-                        {term !== '-' ? `${term} meses` : '-'}
+                        {application.term !== '-' ? `${application.term} meses` : '-'}
                       </div>
                     </div>
                   </div>

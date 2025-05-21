@@ -86,6 +86,11 @@ class Client(ClientBase):
     class Config:
         from_attributes = True
 
+class ClientUser(ClientBase):
+    user: 'User'
+
+    class Config:
+        from_attributes = True
 
 class EmployeeBase(BaseModel):
     matricula: str
@@ -133,6 +138,8 @@ class NotificationRead(NotificationBase):
 class CreditRequestBase(BaseModel):
     amount: float = Field(..., gt=0, description="Amount must be greater than 0")
     deliver_date: datetime
+    term: int
+    purpose: str
     checklist: Optional[List[bool]] = []
 
 
@@ -143,6 +150,7 @@ class CreditRequestCreate(CreditRequestBase):
 
 class CreditRequest(CreditRequestBase):
     id: int
+    client: 'ClientUser'
     client_id: int
     status: str
     created_at: datetime
