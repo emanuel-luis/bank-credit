@@ -67,6 +67,8 @@ class User(Base):
     @property
     def is_employee(self):
         return self.employee is not None
+
+
 class Client(Base):
     def __str__(self):
         return f"Client {self.id} - {self.nome_fantasia} - {self.cnpj} - ({self.user})"
@@ -103,7 +105,6 @@ class Employee(Base):
     matricula = Column(String, unique=True, index=True)
     cpf = Column(String, unique=True, index=True)
     user = relationship("User", back_populates="employee")
-    # One-to-many: employee can be manager of sectors
     managed_sectors = relationship("Sector", back_populates="manager")
 
 
