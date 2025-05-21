@@ -56,18 +56,6 @@ class UserCreate(UserBase):
     groups: Optional[List[str]] = []
 
 
-class User(UserBase):
-    id: int
-    is_active: bool
-    is_superuser: bool
-    created_at: datetime
-    last_login: Optional[datetime] = None
-    groups: Optional[List[Group]] = []
-
-    class Config:
-        from_attributes = True
-
-
 class ClientBase(BaseModel):
     cnpj: str
     nome_fantasia: str
@@ -94,7 +82,6 @@ class ClientCreate(ClientBase):
 class Client(ClientBase):
     id: int
     user_id: int
-    user: User
 
     class Config:
         from_attributes = True
@@ -112,7 +99,6 @@ class EmployeeCreate(EmployeeBase):
 class Employee(EmployeeBase):
     id: int
     user_id: int
-    user: User
 
     class Config:
         from_attributes = True
@@ -193,6 +179,23 @@ class ProcessBase(BaseModel):
 class Process(ProcessBase):
     id: int
     next_process_id: Optional[int] = None
+
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    is_superuser: bool
+    is_client: bool = False
+    is_employee: bool = False
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    groups: Optional[List[Group]] = []
+    role: str | None = None
+    client: Client | None = None
+    employee: Employee | None = None
+
+    class Config:
+        from_attributes = True
 
 
 # Resolve forward references

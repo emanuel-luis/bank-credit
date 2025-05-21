@@ -176,21 +176,36 @@ async def register_employee(
         logger.error(f"[POST /auth/register/employee] Error registering employee: {e}")
         raise
 
-@router.get("/me")
+@router.get("/me", response_model=schemas.User, tags=["auth"])
 async def read_users_me(current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)):
     logger.info(f"[GET /auth/me] User {current_user.id}")
     logger.debug(f"[GET /auth/me] Getting user info for user_id={current_user.id}")
+
+    return current_user
     try:
+        user_data = schemas.User.from_orm(current_user).dict()
+        user_data["is_superuser"] = current_user.is_superuser
+        user_data["is_employee"] = current_user.is_employee
+        user_data["is_client"] = current_user.is_client
         client = db.query(models.Client).filter(models.Client.user_id == current_user.id).first()
-        if client:
+        if current_user.is_client:
             logger.debug(f"[GET /auth/me] User {current_user.id} is a client")
-            return schemas.Client.from_orm(client)
+            user_data["role"] = "customer"
+            user_data["cliente"] = schemas.Client.from_orm(client).dict()
+            user_data["employee"] = None
+            return user_data
         employee = db.query(models.Employee).filter(models.Employee.user_id == current_user.id).first()
         if employee:
             logger.debug(f"[GET /auth/me] User {current_user.id} is an employee")
-            return schemas.Employee.from_orm(employee)
+            user_data["role"] = "staff"
+            user_data["employee"] = schemas.Employee.from_orm(employee).dict()
+            user_data["cliente"] = None
+            return user_data
+        user_data["role"] = "admin" if current_user.is_superuser else "manager"
+        user_data["cliente"] = None
+        user_data["employee"] = None
         logger.debug(f"[GET /auth/me] User {current_user.id} is a generic user")
-        return schemas.User.from_orm(current_user)
+        return user_data
     except Exception as e:
         logger.error(f"[GET /auth/me] Error fetching user info: {e}")
         raise

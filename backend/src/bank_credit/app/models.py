@@ -59,7 +59,6 @@ class User(Base):
     # One-to-one: user <-> client/employee
     client = relationship("Client", uselist=False, back_populates="user")
     employee = relationship("Employee", uselist=False, back_populates="user")
-
     @property
     def is_client(self):
         return self.client is not None
@@ -68,7 +67,15 @@ class User(Base):
     def is_employee(self):
         return self.employee is not None
 
-
+    @property
+    def role(self):
+        if self.is_superuser:
+            return "admin"
+        elif self.is_client:
+            return "customer"
+        elif self.is_employee:
+            return "staff"
+    
 class Client(Base):
     def __str__(self):
         return f"Client {self.id} - {self.nome_fantasia} - {self.cnpj} - ({self.user})"
