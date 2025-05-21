@@ -1,38 +1,55 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FilePlus, ArrowRight, FileText, ChevronRight, FileCheck, AlertCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import ApplicationCard from '../../components/loan/ApplicationCard';
-import { ApplicationStatus } from '../../components/loan/ApplicationStatusBadge';
-
-// Mock data
-const recentApplications = [
-  {
-    id: '1',
-    title: 'Working Capital Loan',
-    status: 'under_review' as ApplicationStatus,
-    amount: 120000,
-    department: 'Microenterprise',
-    submittedAt: new Date('2025-04-10'),
-    deadline: new Date('2025-05-25'),
-  },
-  {
-    id: '2',
-    title: 'Equipment Financing',
-    status: 'pending_documents' as ApplicationStatus,
-    amount: 75000,
-    department: 'Microenterprise',
-    submittedAt: new Date('2025-04-01'),
-    deadline: new Date('2025-05-16'),
-    hasSlaWarning: true,
-  },
-];
+import { useMockApplication } from '../../context/mockdata';
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
-  
+  const [recentApplications, setRecentApplications] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [approved, setApproved] = useState(0);
+  const { mockData } = useMockApplication();
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://127.0.0.1:8000/requests/', {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setTotal(data.length);
+      setPending(data.filter((a: any) => a.status === 'PENDING').length);
+      setApproved(data.filter((a: any) => a.status === 'APPROVED').length);
+
+      // Enriquecer com dados mockados do contexto
+      const enriched = data.map((app: any) => ({
+        ...app,
+        ...(mockData[app.id] || {})
+      }));
+
+      // Ordena por data de atualização (updated_at) ou data de criação (created_at)
+      const sorted = enriched
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.updated_at || a.created_at).getTime();
+          const dateB = new Date(b.updated_at || b.created_at).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, 2);
+
+      setRecentApplications(sorted);
+    };
+    fetchApplications();
+  }, [mockData]);
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -44,9 +61,9 @@ export default function CustomerDashboard() {
           <CardContent className="pt-6">
             <div className="text-center sm:text-left sm:flex sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Welcome to your dashboard</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Bem-vindo ao seu painel</h2>
                 <p className="mt-1 text-gray-500 max-w-2xl">
-                  Start a new credit application or track your existing applications.
+                  Inicie uma nova solicitação de crédito ou acompanhe suas solicitações existentes.
                 </p>
               </div>
               <div className="mt-5 sm:mt-0">
@@ -54,7 +71,7 @@ export default function CustomerDashboard() {
                   onClick={() => navigate('/customer/applications/new')}
                   rightIcon={<FilePlus className="ml-2 h-5 w-5" />}
                 >
-                  New Application
+                  Nova Solicitação
                 </Button>
               </div>
             </div>
@@ -71,38 +88,41 @@ export default function CustomerDashboard() {
         >
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Recent Applications</CardTitle>
+              <CardTitle>Solicitações Recentes</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/customer/applications')}
                 rightIcon={<ArrowRight className="ml-1 h-4 w-4" />}
               >
-                View all
+                Ver todas
               </Button>
             </CardHeader>
+
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
                 {recentApplications.map((application) => (
                   <ApplicationCard
                     key={application.id}
                     {...application}
+                    companyName={application.companyName}
+                    submittedAt={application.created_at}
                     onViewDetails={(id) => navigate(`/customer/applications/${id}`)}
                   />
                 ))}
                 {recentApplications.length === 0 && (
                   <div className="md:col-span-2 py-10 text-center">
                     <FileText className="mx-auto h-10 w-10 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900">No applications</h3>
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">Nenhuma solicitação</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      You haven't submitted any credit applications yet.
+                      Você ainda não enviou nenhuma solicitação de crédito.
                     </p>
                     <div className="mt-6">
                       <Button
                         variant="outline"
                         onClick={() => navigate('/customer/applications/new')}
                       >
-                        Start a new application
+                        Iniciar nova solicitação
                       </Button>
                     </div>
                   </div>
@@ -120,7 +140,7 @@ export default function CustomerDashboard() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Application Status</CardTitle>
+                <CardTitle>Status das Solicitações</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -130,8 +150,8 @@ export default function CustomerDashboard() {
                         <FileText className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Total Applications</p>
-                        <p className="text-xl font-bold">2</p>
+                        <p className="text-sm font-medium">Total de Solicitações</p>
+                        <p className="text-xl font-bold">{total}</p>
                       </div>
                     </div>
                   </div>
@@ -142,8 +162,8 @@ export default function CustomerDashboard() {
                         <AlertCircle className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Pending</p>
-                        <p className="text-xl font-bold">2</p>
+                        <p className="text-sm font-medium">Pendentes</p>
+                        <p className="text-xl font-bold">{pending}</p>
                       </div>
                     </div>
                   </div>
@@ -154,8 +174,8 @@ export default function CustomerDashboard() {
                         <FileCheck className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Approved</p>
-                        <p className="text-xl font-bold">0</p>
+                        <p className="text-sm font-medium">Aprovadas</p>
+                        <p className="text-xl font-bold">{approved}</p>
                       </div>
                     </div>
                   </div>
@@ -165,7 +185,7 @@ export default function CustomerDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Quick Links</CardTitle>
+                <CardTitle>Atalhos</CardTitle>
               </CardHeader>
               <CardContent>
                 <nav className="space-y-1">
@@ -176,7 +196,7 @@ export default function CustomerDashboard() {
                   >
                     <span className="flex items-center">
                       <FilePlus className="mr-3 h-5 w-5 text-gray-400" />
-                      New Application
+                      Nova Solicitação
                     </span>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Button>
@@ -187,7 +207,7 @@ export default function CustomerDashboard() {
                   >
                     <span className="flex items-center">
                       <FileText className="mr-3 h-5 w-5 text-gray-400" />
-                      All Applications
+                      Todas as Solicitações
                     </span>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Button>

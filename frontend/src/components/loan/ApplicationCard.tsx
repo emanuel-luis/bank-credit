@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileClock, Calendar, DollarSign, Building, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '../ui/Card';
@@ -6,15 +6,16 @@ import ApplicationStatusBadge, { ApplicationStatus } from './ApplicationStatusBa
 import Button from '../ui/Button';
 
 export interface ApplicationCardProps {
-  id: string;
-  title: string;
-  status: ApplicationStatus;
+  id: string | number;
+  title?: string;
+  status: ApplicationStatus | string;
   amount: number;
-  department: string;
-  submittedAt: Date;
-  deadline?: Date;
+  department?: string;
+  companyName?: string;
+  submittedAt?: Date | string;
+  deadline?: Date | string;
   hasSlaWarning?: boolean;
-  onViewDetails: (id: string) => void;
+  onViewDetails: (id: string | number) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -24,15 +25,17 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatDate = (date: Date | string | number) => {
+const formatDate = (date?: Date | string | number) => {
+  if (!date) return '-';
   try {
     const dateObj = date instanceof Date ? date : new Date(date);
     if (isNaN(dateObj.getTime())) {
-      return 'Invalid date';
+      return '-';
     }
-    return formatDistanceToNow(dateObj, { addSuffix: true, locale: ptBR });
+    // Exibe a data formatada: 21/05/2025
+    return format(dateObj, 'P', { locale: ptBR });
   } catch {
-    return 'Invalid date';
+    return '-';
   }
 };
 
@@ -40,6 +43,7 @@ export default function ApplicationCard({
   id,
   title,
   status,
+  companyName,
   amount,
   department,
   submittedAt,
@@ -51,7 +55,9 @@ export default function ApplicationCard({
     <Card className="h-full transition-shadow hover:shadow-md">
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
-          <h3 className="font-medium text-gray-900 line-clamp-1">{title}</h3>
+          <h3 className="font-medium text-gray-900 line-clamp-1">
+            {companyName || title || '-'}
+          </h3>
           <ApplicationStatusBadge status={status} />
         </div>
         
@@ -61,10 +67,12 @@ export default function ApplicationCard({
             <span className="font-medium text-gray-700">{formatCurrency(amount)}</span>
           </div>
           
-          <div className="flex items-center text-gray-500">
-            <Building className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>{department}</span>
-          </div>
+          {department && (
+            <div className="flex items-center text-gray-500">
+              <Building className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span>{department}</span>
+            </div>
+          )}
           
           <div className="flex items-center text-gray-500">
             <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -103,4 +111,4 @@ export default function ApplicationCard({
   );
 }
 
-export { ApplicationCard }
+export { ApplicationCard };

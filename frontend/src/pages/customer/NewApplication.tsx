@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Upload, X, FileText, CheckCircle, AlertCircle, ChevronLeft } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
+import { useAuth } from '../../contexts/AuthContext';
+import { useMockApplication } from '../../context/mockdata';
 
 type ApplicationFormData = {
   companyName: string;
@@ -21,12 +23,16 @@ type ApplicationFormData = {
 
 export default function CustomerNewApplication() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  
-  const { register, handleSubmit, control, formState: { errors } } = useForm<ApplicationFormData>();
-  
+  const [success, setSuccess] = useState(false);
+
+  // Use o contexto para mockar os dados em memória
+  const { setMockData } = useMockApplication();
+  const { register, handleSubmit, formState: { errors }, trigger, getValues } = useForm<ApplicationFormData>();
+
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
       'application/pdf': ['.pdf'],
@@ -39,59 +45,136 @@ export default function CustomerNewApplication() {
       setUploadedFiles(prev => [...prev, ...acceptedFiles]);
     },
   });
-  
+
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
-  
-  const onSubmit = (data: ApplicationFormData) => {
+
+  function formatDateNoZ(date: Date) {
+    return date.toISOString().replace(/Z$/, '');
+  }
+
+  function splitFormData(values: ApplicationFormData) {
+    // Dados que vão para a API
+    const apiData = {
+      amount: values.amount,
+      deliver_date: formatDateNoZ(new Date()),
+      checklist: []
+    };
+    // Dados mockados (não enviados para a API)
+    const mockData = {
+      companyName: values.companyName,
+      cnpj: values.cnpj,
+      contactName: values.contactName,
+      contactEmail: values.contactEmail,
+      contactPhone: values.contactPhone,
+      purpose: values.purpose,
+      term: values.term,
+      documents: values.documents || [],
+    };
+    return { apiData, mockData };
+  }
+
+    const onSubmit = async () => {
     setIsSubmitting(true);
-    console.log('Form data:', { ...data, documents: uploadedFiles });
-    
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const values = getValues();
+      const { apiData, mockData } = splitFormData(values);
+
+      // Adiciona os arquivos enviados ao mockData, se houver
+      if (uploadedFiles.length > 0) {
+        mockData.documents = uploadedFiles.map(file => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        }));
+      }
+
+      const token = localStorage.getItem('access_token');
+
+      const response = await fetch('http://127.0.0.1:8000/requests/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
+        body: JSON.stringify(apiData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao enviar solicitação');
+      }
+
+      // Recupera o id da nova solicitação criada
+      const responseData = await response.json();
+      const newId = responseData.id;
+
+      // Salva os dados mockados no contexto (em memória)
+      setMockData(newId, mockData);
+
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/customer/applications');
+      }, 2000);
+    } catch (err) {
+      alert('Erro ao enviar solicitação');
+    } finally {
       setIsSubmitting(false);
-      navigate('/customer/applications');
-    }, 2000);
+    }
   };
-  
-  const nextStep = () => {
-    setCurrentStep(prev => prev + 1);
-    window.scrollTo(0, 0);
+
+  // Validação para impedir avanço sem preencher campos obrigatórios
+  const handleNextStep = async () => {
+    let valid = false;
+    if (currentStep === 1) {
+      valid = await trigger(['companyName', 'cnpj', 'contactName', 'contactEmail', 'contactPhone']);
+    } else if (currentStep === 2) {
+      valid = await trigger(['amount', 'purpose', 'term']);
+    } else if (currentStep === 3) {
+      valid = uploadedFiles.length > 0;
+      if (!valid) {
+        alert('Por favor, envie pelo menos um documento.');
+      }
+    } else {
+      valid = true;
+    }
+    if (valid) {
+      setCurrentStep(prev => prev + 1);
+      window.scrollTo(0, 0);
+    }
   };
-  
+
   const prevStep = () => {
     setCurrentStep(prev => prev - 1);
     window.scrollTo(0, 0);
   };
-  
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return (
           <>
             <CardHeader>
-              <CardTitle>Company Information</CardTitle>
+              <CardTitle>Informações da Empresa</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Company Name
+                    Nome da Empresa
                   </label>
                   <input
                     type="text"
                     className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm ${
                       errors.companyName ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="Enter company name"
+                    placeholder="Digite o nome da empresa"
                     {...register('companyName', { required: 'Company name is required' })}
                   />
                   {errors.companyName && (
                     <p className="mt-1 text-sm text-red-600">{errors.companyName.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     CNPJ
@@ -102,7 +185,7 @@ export default function CustomerNewApplication() {
                       errors.cnpj ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="XX.XXX.XXX/XXXX-XX"
-                    {...register('cnpj', { 
+                    {...register('cnpj', {
                       required: 'CNPJ is required',
                       pattern: {
                         value: /^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$/,
@@ -114,10 +197,9 @@ export default function CustomerNewApplication() {
                     <p className="mt-1 text-sm text-red-600">{errors.cnpj.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Contact Name
+                    Nome
                   </label>
                   <input
                     type="text"
@@ -131,10 +213,9 @@ export default function CustomerNewApplication() {
                     <p className="mt-1 text-sm text-red-600">{errors.contactName.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Contact Email
+                    Email
                   </label>
                   <input
                     type="email"
@@ -142,7 +223,7 @@ export default function CustomerNewApplication() {
                       errors.contactEmail ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Enter contact email"
-                    {...register('contactEmail', { 
+                    {...register('contactEmail', {
                       required: 'Contact email is required',
                       pattern: {
                         value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
@@ -154,10 +235,9 @@ export default function CustomerNewApplication() {
                     <p className="mt-1 text-sm text-red-600">{errors.contactEmail.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Contact Phone
+                    Telefone
                   </label>
                   <input
                     type="tel"
@@ -165,9 +245,7 @@ export default function CustomerNewApplication() {
                       errors.contactPhone ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="(XX) XXXXX-XXXX"
-                    {...register('contactPhone', { 
-                      required: 'Contact phone is required'
-                    })}
+                    {...register('contactPhone', { required: 'Contact phone is required' })}
                   />
                   {errors.contactPhone && (
                     <p className="mt-1 text-sm text-red-600">{errors.contactPhone.message}</p>
@@ -176,13 +254,12 @@ export default function CustomerNewApplication() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              <Button onClick={nextStep}>
+              <Button onClick={handleNextStep}>
                 Continue
               </Button>
             </CardFooter>
           </>
         );
-      
       case 2:
         return (
           <>
@@ -206,8 +283,8 @@ export default function CustomerNewApplication() {
                       }`}
                       placeholder="0.00"
                       step="1000"
-                      min="10000"
-                      {...register('amount', { 
+                      min={10000}
+                      {...register('amount', {
                         required: 'Loan amount is required',
                         min: {
                           value: 10000,
@@ -220,7 +297,6 @@ export default function CustomerNewApplication() {
                     <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Loan Purpose
@@ -243,7 +319,6 @@ export default function CustomerNewApplication() {
                     <p className="mt-1 text-sm text-red-600">{errors.purpose.message}</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Loan Term (months)
@@ -254,9 +329,9 @@ export default function CustomerNewApplication() {
                       errors.term ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Enter loan term in months"
-                    min="6"
-                    max="120"
-                    {...register('term', { 
+                    min={6}
+                    max={120}
+                    {...register('term', {
                       required: 'Loan term is required',
                       min: {
                         value: 6,
@@ -279,13 +354,12 @@ export default function CustomerNewApplication() {
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={nextStep}>
+              <Button onClick={handleNextStep}>
                 Continue
               </Button>
             </CardFooter>
           </>
         );
-      
       case 3:
         return (
           <>
@@ -306,7 +380,6 @@ export default function CustomerNewApplication() {
                     <li>Collateral Documentation (if applicable)</li>
                   </ul>
                 </div>
-                
                 <div
                   {...getRootProps()}
                   className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:bg-gray-50"
@@ -326,7 +399,6 @@ export default function CustomerNewApplication() {
                     <p className="text-xs text-gray-500">PDF, DOC, DOCX, XLS, XLSX up to 10MB each</p>
                   </div>
                 </div>
-                
                 {uploadedFiles.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Documents</h4>
@@ -351,7 +423,6 @@ export default function CustomerNewApplication() {
                     </ul>
                   </div>
                 )}
-                
                 {uploadedFiles.length === 0 && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                     <div className="flex">
@@ -376,15 +447,15 @@ export default function CustomerNewApplication() {
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={nextStep}>
+              <Button onClick={handleNextStep}>
                 Continue
               </Button>
             </CardFooter>
           </>
         );
-      
       case 4:
       default:
+        const values = getValues();
         return (
           <>
             <CardHeader>
@@ -393,57 +464,51 @@ export default function CustomerNewApplication() {
             <CardContent>
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Company Information</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Informações da Empresa</h3>
                   <div className="mt-2 border-t border-gray-200 pt-4">
                     <dl className="divide-y divide-gray-200">
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Company Name</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">Sample Company Ltda.</dd>
+                        <dt className="text-sm font-medium text-gray-500">Nome da Empresa</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.companyName}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt className="text-sm font-medium text-gray-500">CNPJ</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">12.345.678/0001-99</dd>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.cnpj}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Contact Name</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">João Silva</dd>
+                        <dt className="text-sm font-medium text-gray-500">Nome</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.contactName}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Contact Email</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">joao@example.com</dd>
+                        <dt className="text-sm font-medium text-gray-500">Email</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.contactEmail}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Contact Phone</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">(11) 98765-4321</dd>
+                        <dt className="text-sm font-medium text-gray-500">Telefone</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.contactPhone}</dd>
                       </div>
                     </dl>
                   </div>
                 </div>
-                
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Loan Information</h3>
                   <div className="mt-2 border-t border-gray-200 pt-4">
                     <dl className="divide-y divide-gray-200">
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt className="text-sm font-medium text-gray-500">Loan Amount</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">R$ 120.000,00</dd>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">R$ {values.amount?.toLocaleString('pt-BR')}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt className="text-sm font-medium text-gray-500">Loan Purpose</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">Working Capital</dd>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.purpose}</dd>
                       </div>
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt className="text-sm font-medium text-gray-500">Loan Term</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">36 months</dd>
-                      </div>
-                      <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Routing</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">Microenterprise Division</dd>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.term} months</dd>
                       </div>
                     </dl>
                   </div>
                 </div>
-                
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Documents</h3>
                   <div className="mt-2 border-t border-gray-200 pt-4">
@@ -462,7 +527,6 @@ export default function CustomerNewApplication() {
                     )}
                   </div>
                 </div>
-                
                 <div className="bg-gray-50 p-4 rounded-md">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
@@ -470,7 +534,7 @@ export default function CustomerNewApplication() {
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-gray-700">
-                        By submitting this application, you confirm that all the information provided is accurate and complete. 
+                        By submitting this application, you confirm that all the information provided is accurate and complete.
                         Your application will be reviewed in accordance with Banco do Nordeste's credit policies.
                       </p>
                     </div>
@@ -483,7 +547,7 @@ export default function CustomerNewApplication() {
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button 
+              <Button
                 onClick={handleSubmit(onSubmit)}
                 isLoading={isSubmitting}
               >
@@ -494,7 +558,7 @@ export default function CustomerNewApplication() {
         );
     }
   };
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -504,23 +568,23 @@ export default function CustomerNewApplication() {
     >
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">New Credit Application</h1>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={() => navigate('/customer/applications')}
         >
           Cancel
         </Button>
       </div>
-      
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:p-6">
+
+      <div className="bg-white shadow rounded-lg overflow-hidden px-4 py-8">
+        <div className="px-4 py-5">
           <nav aria-label="Progress">
-            <ol className="flex items-center">
-              {['Company Information', 'Loan Details', 'Documents', 'Review & Submit'].map((step, index) => {
+            <ol className="flex items-center gap-x-8">
+              {['Informações', 'Detalhes Empréstimo', 'Documentos', 'Análise e Envio'].map((step, index) => {
                 const isCompleted = currentStep > index + 1;
                 const isCurrent = currentStep === index + 1;
-                
+
                 return (
                   <li key={step} className="relative pr-8 sm:pr-20">
                     {isCompleted ? (
@@ -553,7 +617,7 @@ export default function CustomerNewApplication() {
                         </span>
                       )}
                     </div>
-                    <div className="hidden sm:block absolute top-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                    <div className="hidden sm:block absolute top-12 left-1/2 transform -translate-x-1/2 whitespace-nowrap mt-2">
                       <span
                         className={`text-sm font-medium ${
                           isCompleted || isCurrent ? 'text-gray-900' : 'text-gray-500'
@@ -569,10 +633,25 @@ export default function CustomerNewApplication() {
           </nav>
         </div>
       </div>
-      
+
       <Card>
         {renderStep()}
       </Card>
+
+      {/* Modal simples de sucesso */}
+      {success && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-8 flex flex-col items-center">
+            <CheckCircle className="h-12 w-12 text-green-500 mb-2" />
+            <div className="text-lg font-bold mb-2">Solicitação enviada!</div>
+            <div className="text-gray-600 mb-4 text-center">
+              Sua solicitação de crédito foi enviada com sucesso.<br />
+              Você será redirecionado para suas solicitações.
+            </div>
+            <Button onClick={() => navigate('/customer/applications')}>OK</Button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1,54 +1,80 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FilePlus, Filter, Search, FileText } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import ApplicationCard from '../../components/loan/ApplicationCard';
-import { ApplicationStatus } from '../../components/loan/ApplicationStatusBadge';
+import { useMockApplication } from '../../context/mockdata';
 
-// Mock data
-const allApplications = [
-  {
-    id: '1',
-    title: 'Working Capital Loan',
-    status: 'under_review' as ApplicationStatus,
-    amount: 120000,
-    department: 'Microenterprise',
-    submittedAt: new Date('2025-04-10'),
-    deadline: new Date('2025-05-25'),
-  },
-  {
-    id: '2',
-    title: 'Equipment Financing',
-    status: 'pending_documents' as ApplicationStatus,
-    amount: 75000,
-    department: 'Microenterprise',
-    submittedAt: new Date('2025-04-01'),
-    deadline: new Date('2025-05-16'),
-    hasSlaWarning: true,
-  },
-  {
-    id: '3',
-    title: 'Business Expansion',
-    status: 'draft' as ApplicationStatus,
-    amount: 250000,
-    department: 'Large Business',
-    submittedAt: new Date('2025-03-15'),
-  },
-];
+// Função utilitária para formatar datas
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Função utilitária para formatar status
+function formatStatus(status?: string) {
+  switch (status) {
+    case 'PENDING':
+      return <span className="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold">Pendente</span>;
+    case 'APPROVED':
+      return <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-semibold">Aprovado</span>;
+    case 'REJECTED':
+      return <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs font-semibold">Rejeitado</span>;
+    case 'under_review':
+      return <span className="inline-block px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs font-semibold">Em análise</span>;
+    case 'document_check':
+      return <span className="inline-block px-2 py-1 rounded bg-purple-100 text-purple-800 text-xs font-semibold">Checagem de documentos</span>;
+    default:
+      return <span className="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs font-semibold">{status || '-'}</span>;
+  }
+}
 
 export default function CustomerApplications() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
-  
-  const filteredApplications = allApplications.filter(app => {
-    const matchesSearch = app.title.toLowerCase().includes(searchTerm.toLowerCase());
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { mockData } = useMockApplication();
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('http://127.0.0.1:8000/requests/', {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) throw new Error('Erro ao buscar solicitações');
+        const data = await response.json();
+
+        // Enriquecer com dados mockados do contexto
+        const enriched = data.map((app: any) => ({
+          ...app,
+          ...(mockData[app.id] || {})
+        }));
+
+        setApplications(enriched);
+      } catch (e) {
+        setApplications([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchApplications();
+  }, [mockData]);
+
+  const filteredApplications = applications.filter(app => {
+    const matchesSearch = app.id.toString().includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-  
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -60,9 +86,9 @@ export default function CustomerApplications() {
           <CardContent className="pt-6">
             <div className="sm:flex sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">My Applications</h2>
+                <h2 className="text-xl font-bold text-gray-900">Minhas Solicitações</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  View and manage all your credit applications.
+                  Veja e gerencie todas as suas solicitações de crédito.
                 </p>
               </div>
               <div className="mt-4 sm:mt-0">
@@ -70,7 +96,7 @@ export default function CustomerApplications() {
                   onClick={() => navigate('/customer/applications/new')}
                   leftIcon={<FilePlus className="mr-2 h-5 w-5" />}
                 >
-                  New Application
+                  Nova Solicitação
                 </Button>
               </div>
             </div>
@@ -86,7 +112,7 @@ export default function CustomerApplications() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0">
-              <CardTitle>Applications</CardTitle>
+              <CardTitle>Solicitações</CardTitle>
               <div className="flex space-x-2">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -94,7 +120,7 @@ export default function CustomerApplications() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Search applications..."
+                    placeholder="Buscar por ID..."
                     className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -107,56 +133,81 @@ export default function CustomerApplications() {
                   <select
                     className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm"
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | 'all')}
+                    onChange={(e) => setStatusFilter(e.target.value)}
                   >
-                    <option value="all">All statuses</option>
-                    <option value="draft">Draft</option>
-                    <option value="submitted">Submitted</option>
-                    <option value="document_check">Document Check</option>
-                    <option value="under_review">Under Review</option>
-                    <option value="pending_documents">Pending Documents</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="escalated">Escalated</option>
+                    <option value="all">Todos os status</option>
+                    <option value="PENDING">Pendente</option>
+                    <option value="APPROVED">Aprovado</option>
+                    <option value="REJECTED">Rejeitado</option>
                   </select>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {filteredApplications.length > 0 ? (
+            {loading ? (
+              <div className="py-12 text-center">Carregando...</div>
+            ) : filteredApplications.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredApplications.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    {...application}
-                    onViewDetails={(id) => navigate(`/customer/applications/${id}`)}
-                  />
+                {filteredApplications.map((app) => (
+                  <Card
+                    key={app.id}
+                    className="flex flex-col justify-between shadow-lg border border-gray-200 hover:border-primary-400 transition"
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base font-semibold text-primary-700 flex flex-col">
+                        Solicitação #{app.id}
+                        <span className="text-sm font-normal text-gray-600 mt-1">
+                          {app.companyName || '-'}
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-2">
+                      <div>
+                        <span className="font-medium">Status: </span>
+                        {formatStatus(app.status)}
+                      </div>
+                      <div>
+                        <span className="font-medium">Valor: </span>
+                        {app.amount ? `R$ ${Number(app.amount).toLocaleString('pt-BR')}` : '-'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Criado em: </span>
+                        {formatDate(app.created_at)}
+                      </div>
+                      <div>
+                        <span className="font-medium">CNPJ: </span>
+                        {app.cnpj || '-'}
+                      </div>
+                    </CardContent>
+                    <div className="p-4 pt-0">
+                      <Button
+                        className="w-full"
+                        onClick={() => navigate(`/customer/applications/${app.id}`)}
+                      >
+                        Ver detalhes
+                      </Button>
+                    </div>
+                  </Card>
                 ))}
               </div>
             ) : (
               <div className="py-12 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No applications found</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma solicitação encontrada</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  No applications match your current filters.
+                  Nenhuma solicitação corresponde aos filtros atuais.
                 </p>
-                {statusFilter !== 'all' || searchTerm !== '' ? (
+                {(statusFilter !== 'all' || searchTerm !== '') && (
                   <div className="mt-6 flex justify-center">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => {
                         setStatusFilter('all');
                         setSearchTerm('');
                       }}
                     >
-                      Clear filters
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex justify-center">
-                    <Button onClick={() => navigate('/customer/applications/new')}>
-                      Create new application
+                      Limpar filtros
                     </Button>
                   </div>
                 )}

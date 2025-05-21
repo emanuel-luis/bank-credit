@@ -1,21 +1,20 @@
 import { twMerge } from 'tailwind-merge';
 
-export type ApplicationStatus = 
-  | 'draft'
-  | 'submitted'
-  | 'document_check'
-  | 'under_review'
-  | 'pending_documents'
-  | 'approved'
-  | 'rejected'
-  | 'escalated';
+export type ApplicationStatus =
+  | 'Enviado'
+  | 'Checagem de Documentos'
+  | 'Em análise'
+  | 'Documentos Pendentes'
+  | 'Pendente'
+  | 'Aprovado'
+  | 'Rejeitado'
 
 interface ApplicationStatusBadgeProps {
-  status: ApplicationStatus;
+  status: ApplicationStatus | string;
   className?: string;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; bgColor: string; textColor: string }> = {
   draft: {
     label: 'Draft',
     bgColor: 'bg-gray-100',
@@ -56,14 +55,30 @@ const statusConfig = {
     bgColor: 'bg-yellow-100',
     textColor: 'text-yellow-700',
   },
+  // Suporte para status em caixa alta vindos do backend
+  PENDING: {
+    label: 'Pendente',
+    bgColor: 'bg-yellow-100',
+    textColor: 'text-yellow-700',
+  },
+  APPROVED: {
+    label: 'Aprovado',
+    bgColor: 'bg-green-100',
+    textColor: 'text-green-700',
+  },
+  REJECTED: {
+    label: 'Rejeitado',
+    bgColor: 'bg-red-100',
+    textColor: 'text-red-700',
+  },
 };
 
-export default function ApplicationStatusBadge({ 
-  status, 
-  className 
+export default function ApplicationStatusBadge({
+  status,
+  className,
 }: ApplicationStatusBadgeProps) {
-  const config = statusConfig[status];
-  
+  const config = statusConfig[status] || statusConfig['Pendente'];
+
   return (
     <span
       className={twMerge(
