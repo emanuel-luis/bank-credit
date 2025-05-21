@@ -1,11 +1,25 @@
-# Auth-related CRUD logic (migrated from crud.py)
 from typing import Optional
 from sqlalchemy.orm import Session
 from bank_credit.app import models, schemas
 from datetime import datetime
+from passlib.context import CryptContext
 import logging
 
 logger = logging.getLogger("bank_credit.views.auth")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    logger.debug(f"[verify_password] Verificando senha para usuário.")
+    result = pwd_context.verify(plain_password, hashed_password)
+    logger.debug(f"[verify_password] Resultado: {result}")
+    return result
+
+def get_password_hash(password: str) -> str:
+    logger.debug(f"[get_password_hash] Gerando hash para senha.")
+    hash_ = pwd_context.hash(password)
+    logger.debug(f"[get_password_hash] Hash gerado.")
+    return hash_
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     logger.debug(f"Buscando usuário por email: {email}")
@@ -35,13 +49,11 @@ def get_employee_by_email(db: Session, email: str) -> Optional[models.Employee]:
 
 def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
     logger.info(f"Criando usuário: {user_in.email}")
-    from bank_credit.app.routers.auth import get_password_hash
-    hashed_pw = get_password_hash(user_in.password)
     db_user = models.User(
         full_name=user_in.full_name,
         phone=user_in.phone,
         email=user_in.email,
-        hashed_password=hashed_pw,
+        hashed_password=user_in.password,
         is_active=True,
         is_superuser=user_in.is_superuser or False,
         created_at=datetime.now(),

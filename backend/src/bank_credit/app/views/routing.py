@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from bank_credit.app import models, utils
-from .credit_request import update_request_status
+from .credit_request import update_request_status, record_history
 import logging
 
 logger = logging.getLogger("bank_credit.views.routing")
@@ -41,7 +41,6 @@ def route_credit_request(db: Session, request: models.CreditRequest):
     request.updated_at = datetime.now()
     db.add(request)
     db.commit()
-    from .credit_request import record_history
     record_history(db, request, request.status)
     utils.schedule_sla_alert(request.id, target_sector.sla_days)
     logger.info(f"Pedido {request.id} roteado com sucesso")

@@ -1,4 +1,10 @@
-from datetime import datetime, UTC, timedelta
+import logging
+
+logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.CRITICAL)
+logging.basicConfig(level=logging.INFO, force=True, datefmt="%Y-%m-%d %H:%M:%S", format="%(asctime)s - %(name)s - %(levelname)s: %(message)s")
+logger = logging.getLogger("bank_credit.populate")
+
+from datetime import datetime, timedelta
 from bank_credit.app.database import SessionLocal, engine, Base
 from bank_credit.app.models import (
     Client,
@@ -10,136 +16,11 @@ from bank_credit.app.models import (
     User,
     Employee,
 )
-from bank_credit.app.routers.auth import get_password_hash
+from bank_credit.app.views.auth import get_password_hash
 import argparse
 import random
 from faker import Faker
 from sqlalchemy.exc import IntegrityError
-
-
-def create_initial_data():
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-
-    try:
-        # Verificar se já existem dados
-        if db.query(Client).first():
-            print("Banco de dados já possui dados iniciais.")
-            return
-
-        # Criar usuários de exemplo
-        clients = [
-            Client(
-                username="joao.silva",
-                hashed_password=get_password_hash("senha123"),
-                is_active=True,
-            ),
-            Client(
-                username="maria.santos",
-                hashed_password=get_password_hash("senha456"),
-                is_active=True,
-            ),
-        ]
-        db.add_all(clients)
-        db.commit()
-
-        # Criar setores
-        sectors = [
-            Sector(name="Análise Inicial", limit=50000.0, sla_days=1, require_all=True),
-            Sector(name="Análise de Crédito", limit=100000.0, sla_days=2, require_all=True),
-            Sector(name="Análise de Risco", limit=200000.0, sla_days=3, require_all=True),
-            Sector(name="Comitê Executivo", limit=500000.0, sla_days=5, require_all=True),
-        ]
-        db.add_all(sectors)
-        db.commit()
-
-        # Criar processos e suas relações
-        processes = [
-            Process(name="Verificação Inicial"),
-            Process(name="Análise de Documentos"),
-            Process(name="Avaliação de Crédito"),
-            Process(name="Aprovação Final"),
-        ]
-
-        # Configurar a sequência dos processos
-        for i in range(len(processes) - 1):
-            processes[i].next_process = processes[i + 1]
-
-        # Associar setores aos processos
-        processes[0].sectors.append(sectors[0])  # Verificação Inicial -> Análise Inicial
-        processes[1].sectors.extend([sectors[0], sectors[1]])  # Análise de Documentos -> Análise Inicial e de Crédito
-        processes[2].sectors.extend([sectors[1], sectors[2]])  # Avaliação de Crédito -> Análise de Crédito e de Risco
-        processes[3].sectors.extend([sectors[2], sectors[3]])  # Aprovação Final -> Análise de Risco e Comitê Executivo
-
-        db.add_all(processes)
-        db.commit()
-
-        # Criar algumas solicitações de crédito de exemplo
-        credit_requests = [
-            CreditRequest(
-                client_id=clients[0].id,
-                amount=30000.0,
-                status="PENDING",
-                created_at=datetime.now(),
-                deliver_date=datetime.now() + timedelta(days=7),
-                current_process_id=processes[0].id,
-            ),
-            CreditRequest(
-                client_id=clients[1].id,
-                amount=150000.0,
-                status="PENDING",
-                created_at=datetime.now(),
-                deliver_date=datetime.now() + timedelta(days=10),
-                current_process_id=processes[0].id,
-            ),
-        ]
-        db.add_all(credit_requests)
-        db.commit()
-
-        # Criar histórico para as solicitações
-        histories = [
-            RequestHistory(
-                request_id=credit_requests[0].id,
-                status="PENDING",
-                timestamp=datetime.now(),
-            ),
-            RequestHistory(
-                request_id=credit_requests[1].id,
-                status="PENDING",
-                timestamp=datetime.now(),
-            ),
-        ]
-        db.add_all(histories)
-        db.commit()
-
-        # Criar algumas notificações de exemplo
-        notifications = [
-            Notification(
-                client_id=clients[0].id,
-                subject="Solicitação Recebida",
-                message="Sua solicitação de crédito foi recebida e está em análise.",
-                read=False,
-                created_at=datetime.now(),
-            ),
-            Notification(
-                client_id=clients[1].id,
-                subject="Documentação Necessária",
-                message="Por favor, envie os documentos necessários para análise do seu crédito.",
-                read=False,
-                created_at=datetime.now(),
-            ),
-        ]
-        db.add_all(notifications)
-        db.commit()
-
-        print("Dados iniciais criados com sucesso!")
-
-    except Exception as e:
-        print(f"Erro ao criar dados iniciais: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
 
 def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, only=None):
     Base.metadata.create_all(bind=engine)
@@ -150,16 +31,18 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
         random.seed(seed)
     try:
         if force:
-            print("Forçando repopulação: limpando todas as tabelas...")
+            logger.info("Forçando repopulação: limpando todas as tabelas...")
             Base.metadata.drop_all(bind=engine)
             Base.metadata.create_all(bind=engine)
         elif db.query(Client).first():
-            print("Banco de dados já possui dados. Use --force para repopular.")
+            logger.info("Banco de dados já possui dados. Use --force para repopular.")
             return
         # Setores e funcionários
         sector_objs = []
         employee_objs = []
+        logger.info(f"Populando setores: {sectors} setor(es)")
         for i in range(sectors):
+            logger.info(f"Populando setor {i+1}/{sectors}")
             sector_name = fake.unique.job()[:30]
             limit = random.randint(1000, 100000)
             sla_days = random.randint(1, 10)
@@ -176,7 +59,6 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(user)
             db.commit()
-            db.refresh(user)
             employee = Employee(
                 user_id=user.id,
                 matricula=f"EMP{i+1:03d}",
@@ -184,7 +66,6 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(employee)
             db.commit()
-            db.refresh(employee)
             sector = Sector(
                 name=sector_name,
                 limit=limit,
@@ -194,31 +75,38 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(sector)
             db.commit()
-            db.refresh(sector)
             sector_objs.append(sector)
             employee_objs.append(employee)
+            logger.info(f"Setor {i+1}/{sectors} adicionado: {sector}")
         # Processos (fluxo orgânico)
         process_objs = []
+        logger.info(f"Populando processos: {processes} processo(s)")
         for i in range(processes):
+            logger.info(f"Populando processo {i+1}/{processes}")
             pname = f"Processo {fake.word().capitalize()} {i+1}"
             proc = Process(name=pname)
             db.add(proc)
             db.commit()
-            db.refresh(proc)
             # Associa setores aleatórios
             n_sec = random.randint(1, min(3, len(sector_objs)))
             chosen = random.sample(sector_objs, n_sec)
             proc.sectors.extend(chosen)
             db.commit()
             process_objs.append(proc)
+            logger.info(f"Processo {i+1}/{processes} adicionado")
         # Liga processos em cadeia, mas com saltos orgânicos
+        logger.info("Conectando processos em cadeia")
         for i, proc in enumerate(process_objs[:-1]):
+            logger.info(f"Conectando processo {proc.name} com o próximo")
             jump = random.randint(1, min(2, len(process_objs)-i-1))
             proc.next_process_id = process_objs[i+jump].id
             db.commit()
+            logger.info(f"Processo {proc.name} conectado com {process_objs[i+jump].name}")
         # Clientes
         client_objs = []
+        logger.info(f"Populando clientes: {clients} cliente(s)")
         for i in range(clients):
+            logger.info(f"Populando cliente {i+1}/{clients}")
             user = User(
                 full_name=fake.name(),
                 phone=fake.msisdn()[0:11],
@@ -230,7 +118,6 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(user)
             db.commit()
-            db.refresh(user)
             client = Client(
                 user_id=user.id,
                 cnpj=fake.unique.cnpj(),
@@ -249,10 +136,11 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(client)
             db.commit()
-            db.refresh(client)
             client_objs.append(client)
+            logger.info(f"Cliente {i+1}/{clients} adicionado")
         # Solicitações de crédito orgânicas
         for client in random.sample(client_objs, min(30, len(client_objs))):
+            logger.info(f"Populando solicitação de crédito para cliente {client.nome_fantasia}")
             amount = random.randint(1000, 200000)
             status = random.choice(["PENDING", "APPROVED", "REJECTED"])
             created_at = datetime.now() - timedelta(days=random.randint(0, 60))
@@ -268,7 +156,6 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(req)
             db.commit()
-            db.refresh(req)
             # Histórico
             hist = RequestHistory(
                 request_id=req.id,
@@ -287,12 +174,13 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
             )
             db.add(notif)
             db.commit()
-        print(f"População concluída: {len(client_objs)} clientes, {len(sector_objs)} setores, {len(process_objs)} processos.")
+            logger.info(f"Solicitação de crédito {req.id} e status {req.status} adicionada para cliente {client.nome_fantasia}")
+        logger.info(f"População concluída: {len(client_objs)} clientes, {len(sector_objs)} setores, {len(process_objs)} processos.")
     except IntegrityError as e:
-        print(f"Erro de integridade: {e}")
+        logger.info(f"Erro de integridade: {e}")
         db.rollback()
     except Exception as e:
-        print(f"Erro ao popular banco: {e}")
+        logger.info(f"Erro ao popular banco: {e}")
         db.rollback()
     finally:
         db.close()

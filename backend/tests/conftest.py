@@ -11,7 +11,7 @@ from bank_credit.app.database import Base, get_db
 from bank_credit.app.main import app
 from bank_credit.app.routers.auth import create_access_token
 from bank_credit.app.models import CreditRequest, Process, Sector, User, Client, Employee
-from bank_credit.app.routers.auth import get_password_hash
+from bank_credit.app.views.auth import get_password_hash
 
 # Configurar ambiente de teste
 os.environ["TESTING"] = "true"

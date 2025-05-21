@@ -2,9 +2,7 @@
 
 from datetime import datetime, UTC, timedelta
 from typing import Optional
-from passlib.context import CryptContext
 import logging
-
 import os
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
@@ -27,26 +25,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 
 # OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
-
 router = APIRouter()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 logger = logging.getLogger("bank_credit.routers.auth")
 
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    logger.debug(f"[verify_password] Verificando senha para usuário.")
-    result = pwd_context.verify(plain_password, hashed_password)
-    logger.debug(f"[verify_password] Resultado: {result}")
-    return result
-
-
-def get_password_hash(password: str) -> str:
-    logger.debug(f"[get_password_hash] Gerando hash para senha.")
-    hash_ = pwd_context.hash(password)
-    logger.debug(f"[get_password_hash] Hash gerado.")
-    return hash_
 
 # --- JWT token creation ---
 
@@ -75,7 +56,7 @@ async def authenticate_user(db: Session, email: str, password: str) -> Optional[
     if not user:
         logger.debug(f"[authenticate_user] Usuário {email} não encontrado.")
         return False
-    if not verify_password(password, user.hashed_password) or not user.is_active:
+    if not auth_view.verify_password(password, user.hashed_password) or not user.is_active:
         logger.debug(f"[authenticate_user] Senha incorreta ou usuário inativo para {email}.")
         return False
     logger.debug(f"[authenticate_user] Usuário {email} autenticado com sucesso.")

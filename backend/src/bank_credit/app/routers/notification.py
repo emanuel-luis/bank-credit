@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, UTC
 import logging
+from sqlalchemy import not_
 
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app import models, schemas
 from bank_credit.app.email import send_notification_email
-from sqlalchemy import not_
 
 logger = logging.getLogger("bank_credit.routers.notification")
 

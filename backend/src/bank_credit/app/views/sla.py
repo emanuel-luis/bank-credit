@@ -2,10 +2,11 @@
 from datetime import datetime, timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+import logging
+
 from bank_credit.app import models
 from bank_credit.app.utils import send_notification
 from .credit_request import update_request_status
-import logging
 
 logger = logging.getLogger("bank_credit.views.sla")
 

@@ -2,7 +2,6 @@
 
 from bank_credit.app.utils import send_notification
 from fastapi import APIRouter, Depends, HTTPException, status
-from bank_credit.app.views import auth as auth_view
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
@@ -13,6 +12,7 @@ from bank_credit.app import schemas, models
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app.routers.notification import send_notification_email
+from bank_credit.app.views import auth as auth_view
 from bank_credit.app.views import credit_request as credit_view
 from bank_credit.app.views import routing as routing_view
 
@@ -41,7 +41,6 @@ def create_credit_request(
     logger.info(f"[POST /requests] User {current_user.id} - Creating credit request")
     logger.debug(f"Request data: {req_in}")
     try:
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not client:
             logger.warning(f"User {current_user.id} is not a client")
@@ -99,7 +98,6 @@ def route_request_to_next(
     logger.info(f"[POST /requests/{{request_id}}/route] User {current_user.id} - Route request {request_id}")
     try:
         req = credit_view.get_credit_request(db, request_id)
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not req or not client or req.client_id != client.id:
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
@@ -120,7 +118,6 @@ def get_request_status(
     logger.info(f"[GET /requests/{{request_id}}/status] User {current_user.id} - Request {request_id}")
     try:
         req = credit_view.get_credit_request(db, request_id)
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not req or not client or req.client_id != client.id:
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
@@ -141,7 +138,6 @@ def get_estimated_time(
     try:
         from datetime import timedelta
         req = credit_view.get_credit_request(db, request_id)
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not req or not client or req.client_id != client.id:
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
@@ -237,7 +233,6 @@ def get_request_history(
     logger.info(f"[GET /requests/{{request_id}}/history] User {current_user.id} - Request {request_id}")
     try:
         req = credit_view.get_credit_request(db, request_id)
-        from bank_credit.app.views import auth as auth_view
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not req or not client or req.client_id != client.id:
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")

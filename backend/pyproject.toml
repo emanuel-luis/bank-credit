@@ -35,3 +35,7 @@ build-backend = "poetry.core.masonry.api"
 dev = [
     "ruff>=0.11.9",
 ]
+
+[project.scripts]
+serve = "bank_credit:main"
+populate = "bank_credit.scripts.populate:main"
