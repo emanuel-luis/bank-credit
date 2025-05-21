@@ -77,7 +77,12 @@ export default function ApplicationStatusBadge({
   status,
   className,
 }: ApplicationStatusBadgeProps) {
-  const config = statusConfig[status] || statusConfig['Pendente'];
+  // Tenta encontrar o status exato, depois tenta em caixa baixa, depois caixa alta, depois fallback para 'PENDING'
+  const config =
+    statusConfig[status] ||
+    statusConfig[String(status).toLowerCase()] ||
+    statusConfig[String(status).toUpperCase()] ||
+    statusConfig['PENDING'];
 
   return (
     <span

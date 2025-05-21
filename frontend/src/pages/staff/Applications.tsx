@@ -103,6 +103,7 @@ export default function Applications() {
                 department="Carregando..."
                 submittedAt={new Date()}
                 onViewDetails={() => {}}
+                central="Carregando..."
               />
             ) : paginatedApps.length === 0 ? (
               <div className="text-center text-gray-500 py-10">Nenhuma solicitação encontrada.</div>
@@ -118,6 +119,7 @@ export default function Applications() {
                   purpose={application.purpose}
                   term={application.term}
                   submittedAt={application.created_at}
+                  central={application.central || '-'}
                   onViewDetails={(id) => navigate(`/staff/applications/${id}`)}
                 />
               ))

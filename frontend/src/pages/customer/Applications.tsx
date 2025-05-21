@@ -179,6 +179,10 @@ export default function CustomerApplications() {
                         <span className="font-medium">CNPJ: </span>
                         {app.cnpj || '-'}
                       </div>
+                      <div>
+                        <span className="font-medium">Central: </span>
+                        {app.central || '-'}
+                      </div>
                     </CardContent>
                     <div className="p-4 pt-0">
                       <Button

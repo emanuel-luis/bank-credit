@@ -19,6 +19,7 @@ type ApplicationFormData = {
   purpose: string;
   term: number;
   documents: File[];
+  departamento?: string;
 };
 
 export default function CustomerNewApplication() {
@@ -54,6 +55,13 @@ export default function CustomerNewApplication() {
     return date.toISOString().replace(/Z$/, '');
   }
 
+  function getCentral(amount: number) {
+    if (amount < 4800000) {
+      return 'Central de Varejo';
+    }
+    return 'Central de Médio e Grande';
+  }
+
   function splitFormData(values: ApplicationFormData) {
     // Dados que vão para a API
     const apiData = {
@@ -71,11 +79,13 @@ export default function CustomerNewApplication() {
       purpose: values.purpose,
       term: values.term,
       documents: values.documents || [],
+      departamento: values.departamento || '', // mantém o campo original se houver
+      central: getCentral(values.amount),      // novo campo "Central"
     };
     return { apiData, mockData };
   }
 
-    const onSubmit = async () => {
+  const onSubmit = async () => {
     setIsSubmitting(true);
     try {
       const values = getValues();
@@ -456,6 +466,7 @@ export default function CustomerNewApplication() {
       case 4:
       default:
         const values = getValues();
+        const central = getCentral(values.amount);
         return (
           <>
             <CardHeader>
@@ -505,6 +516,14 @@ export default function CustomerNewApplication() {
                       <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt className="text-sm font-medium text-gray-500">Loan Term</dt>
                         <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.term} months</dd>
+                      </div>
+                      <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-500">Departamento</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{values.departamento || '-'}</dd>
+                      </div>
+                      <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt className="text-sm font-medium text-gray-500">Central</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{central}</dd>
                       </div>
                     </dl>
                   </div>

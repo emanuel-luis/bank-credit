@@ -46,11 +46,12 @@ export default function ApplicationCard({
   companyName,
   amount,
   department,
+  central, // Adicione se quiser receber central como prop
   submittedAt,
   deadline,
   hasSlaWarning = false,
   onViewDetails,
-}: ApplicationCardProps) {
+}: ApplicationCardProps & { central?: string }) {
   return (
     <Card className="h-full transition-shadow hover:shadow-md">
       <CardContent className="pt-6">
@@ -70,20 +71,27 @@ export default function ApplicationCard({
           {department && (
             <div className="flex items-center text-gray-500">
               <Building className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span>{department}</span>
+              <span>Departamento: {department}</span>
+            </div>
+          )}
+
+          {central && (
+            <div className="flex items-center text-gray-500">
+              <Building className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span>Central: {central}</span>
             </div>
           )}
           
           <div className="flex items-center text-gray-500">
             <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span>Submitted {formatDate(submittedAt)}</span>
+            <span>Enviado em {formatDate(submittedAt)}</span>
           </div>
           
           {deadline && (
             <div className="flex items-center text-gray-500">
               <FileClock className="h-4 w-4 mr-2 flex-shrink-0" />
               <span className={hasSlaWarning ? 'text-error-600 font-medium' : ''}>
-                Due {formatDate(deadline)}
+                Prazo {formatDate(deadline)}
               </span>
             </div>
           )}
@@ -91,7 +99,7 @@ export default function ApplicationCard({
           {hasSlaWarning && (
             <div className="flex items-center text-error-600">
               <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span className="text-sm font-medium">SLA breach warning</span>
+              <span className="text-sm font-medium">Aviso de estouro de SLA</span>
             </div>
           )}
         </div>
@@ -104,7 +112,7 @@ export default function ApplicationCard({
           className="w-full"
           onClick={() => onViewDetails(id)}
         >
-          View Details
+          Ver detalhes
         </Button>
       </CardFooter>
     </Card>

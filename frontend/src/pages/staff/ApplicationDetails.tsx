@@ -40,11 +40,11 @@ function ConfirmDialog({
 }
 
 const STATUS_OPTIONS = [
-  { value: 'Pendente'},
-  { value: 'Aprovado'},
-  { value: 'Rejeitado'},
-  { value: 'Em análise'},
-  { value: 'Checagem de documento'},
+  { value: 'Pendente', label: 'Pendente' },
+  { value: 'Aprovado', label: 'Aprovado' },
+  { value: 'Rejeitado', label: 'Rejeitado' },
+  { value: 'Em análise', label: 'Em análise' },
+  { value: 'Checagem de documento', label: 'Checagem de documento' },
 ];
 
 const STAGE_OPTIONS = [
@@ -116,7 +116,7 @@ export default function ApplicationDetails() {
     }
   };
 
- const handleConfirmStatus = async () => {
+  const handleConfirmStatus = async () => {
     setSaving(true);
     setShowDialog(false);
     const token = localStorage.getItem('access_token');
@@ -134,7 +134,6 @@ export default function ApplicationDetails() {
     // Salva etapa e departamento no mockData
     const newStage = pendingStage || stage;
     setStage(newStage);
-    // No staff/ApplicationDetails.tsx, ao salvar no mockData:
     setMockData(Number(id), {
       ...application,
       status: pendingStatus || status,
@@ -230,6 +229,13 @@ export default function ApplicationDetails() {
                   <dt className="text-sm font-medium text-gray-500">Prazo (meses)</dt>
                   <dd className="mt-1 text-sm text-gray-900">
                     {application.term ? `${application.term} meses` : '-'}
+                  </dd>
+                </div>
+                {/* CAMPO CENTRAL */}
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Central</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {application.central || '-'}
                   </dd>
                 </div>
                 <div>
