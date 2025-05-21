@@ -135,11 +135,6 @@ class CreditRequestBase(BaseModel):
     deliver_date: datetime
     checklist: Optional[List[bool]] = []
 
-    @validator("deliver_date")
-    def validate_deliver_date(cls, v):
-        if v <= datetime.now():
-            raise ValueError("Deliver date must be in the future")
-        return v
 
 
 class CreditRequestCreate(CreditRequestBase):

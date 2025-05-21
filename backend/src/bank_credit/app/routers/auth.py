@@ -10,6 +10,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from passlib.context import CryptContext  # ADICIONADO
+
 from bank_credit.app import models, schemas
 from bank_credit.app.database import get_db
 from bank_credit.app.email import send_welcome_email
@@ -18,19 +20,22 @@ from bank_credit.app.views import auth as auth_view
 # --- Configuration ---
 load_dotenv()
 
-# Load configuration from environment variables with secure defaults
 SECRET_KEY = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 
 # OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 router = APIRouter()
 logger = logging.getLogger("bank_credit.routers.auth")
 
-
 # --- JWT token creation ---
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     logger.debug(f"[create_access_token] Criando token para: {data}")
@@ -46,9 +51,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     logger.debug(f"[create_access_token] Token criado.")
     return encoded_jwt
 
-
 # --- Authentication dependencies ---
-
 
 async def authenticate_user(db: Session, email: str, password: str) -> Optional[models.User]:
     logger.info(f"[authenticate_user] Autenticando usuário {email}")
@@ -61,7 +64,6 @@ async def authenticate_user(db: Session, email: str, password: str) -> Optional[
         return False
     logger.debug(f"[authenticate_user] Usuário {email} autenticado com sucesso.")
     return user
-
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
     logger.info(f"[get_current_user] Validando token JWT.")
@@ -87,7 +89,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     logger.debug(f"[get_current_user] Usuário {email} validado.")
     return user
 
-
 async def get_current_active_user(
     current_user: models.User = Depends(get_current_user),
 ) -> models.User:
@@ -98,9 +99,7 @@ async def get_current_active_user(
     logger.debug(f"[get_current_active_user] Usuário ativo.")
     return current_user
 
-
 # --- Auth endpoints ---
-
 
 @router.post("/token", response_model=schemas.Token, tags=["auth"])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -140,6 +139,8 @@ async def register_client(
         if db.query(models.User).filter(models.User.email == client.user.email).first():
             logger.warning(f"[POST /auth/register/client] Email {client.user.email} already registered")
             raise HTTPException(status_code=400, detail="Email já cadastrado")
+        # HASH DA SENHA ANTES DE CRIAR O USUÁRIO
+        client.user.password = get_password_hash(client.user.password)
         db_client = auth_view.create_client(db, client)
         background_tasks.add_task(send_welcome_email, str(db_client.user.email), str(db_client.user.full_name))
         logger.info(f"[POST /auth/register/client] Client {client.user.email} registered successfully")
@@ -167,6 +168,8 @@ async def register_employee(
         if db.query(models.User).filter(models.User.email == employee.user.email).first():
             logger.warning(f"[POST /auth/register/employee] Email {employee.user.email} already registered")
             raise HTTPException(status_code=400, detail="Email já cadastrado")
+        # HASH DA SENHA ANTES DE CRIAR O USUÁRIO
+        employee.user.password = get_password_hash(employee.user.password)
         db_employee = auth_view.create_employee(db, employee)
         background_tasks.add_task(send_welcome_email, str(db_employee.user.email), str(db_employee.user.full_name))
         logger.info(f"[POST /auth/register/employee] Employee {employee.user.email} registered successfully")
@@ -180,32 +183,4 @@ async def register_employee(
 async def read_users_me(current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)):
     logger.info(f"[GET /auth/me] User {current_user.id}")
     logger.debug(f"[GET /auth/me] Getting user info for user_id={current_user.id}")
-
     return current_user
-    try:
-        user_data = schemas.User.from_orm(current_user).dict()
-        user_data["is_superuser"] = current_user.is_superuser
-        user_data["is_employee"] = current_user.is_employee
-        user_data["is_client"] = current_user.is_client
-        client = db.query(models.Client).filter(models.Client.user_id == current_user.id).first()
-        if current_user.is_client:
-            logger.debug(f"[GET /auth/me] User {current_user.id} is a client")
-            user_data["role"] = "customer"
-            user_data["cliente"] = schemas.Client.from_orm(client).dict()
-            user_data["employee"] = None
-            return user_data
-        employee = db.query(models.Employee).filter(models.Employee.user_id == current_user.id).first()
-        if employee:
-            logger.debug(f"[GET /auth/me] User {current_user.id} is an employee")
-            user_data["role"] = "staff"
-            user_data["employee"] = schemas.Employee.from_orm(employee).dict()
-            user_data["cliente"] = None
-            return user_data
-        user_data["role"] = "admin" if current_user.is_superuser else "manager"
-        user_data["cliente"] = None
-        user_data["employee"] = None
-        logger.debug(f"[GET /auth/me] User {current_user.id} is a generic user")
-        return user_data
-    except Exception as e:
-        logger.error(f"[GET /auth/me] Error fetching user info: {e}")
-        raise

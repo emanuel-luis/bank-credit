@@ -53,7 +53,7 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
         full_name=user_in.full_name,
         phone=user_in.phone,
         email=user_in.email,
-        hashed_password=user_in.password,
+        hashed_password=get_password_hash(user_in.password),  # CORRIGIDO: agora hasheia a senha
         is_active=True,
         is_superuser=user_in.is_superuser or False,
         created_at=datetime.now(),

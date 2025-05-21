@@ -32,6 +32,24 @@ def log_request_context(request_id=None, user_id=None, action=None, extra=None):
 router = APIRouter()
 
 
+@router.get("/all", response_model=List[schemas.CreditRequest], tags=["requests"])
+def list_all_requests_for_employee(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user),
+):
+    logger.info(f"[GET /requests/all] User {current_user.id} - List all requests")
+    employee = auth_view.get_employee_by_user_id(db, current_user.id)
+    if not employee:
+        logger.warning(f"User {current_user.id} is not an employee")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas funcionários podem acessar todas as solicitações."
+        )
+    requests = credit_view.list_all_requests(db)
+    logger.debug(f"Found {len(requests)} requests in total")
+    return requests
+
+
 @router.post("/", response_model=schemas.CreditRequest, status_code=status.HTTP_201_CREATED)
 def create_credit_request(
     req_in: schemas.CreditRequestCreate,
@@ -80,7 +98,9 @@ def get_request(
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        # Permite acesso se for o cliente dono OU funcionário
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         logger.debug(f"Request found: {req}")
@@ -99,7 +119,8 @@ def route_request_to_next(
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         routed = routing_view.route_credit_request(db, req)
@@ -119,7 +140,8 @@ def get_request_status(
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         logger.debug(f"Request status: {req.status}")
@@ -139,7 +161,8 @@ def get_estimated_time(
         from datetime import timedelta
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         eta: timedelta = credit_view.get_estimated_time_to_completion(db, request_id)
@@ -166,7 +189,8 @@ def update_request_status(
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         status_anterior = req.status
@@ -215,7 +239,6 @@ def update_request_status(
         if reason:
             message += f" Reason: {reason}"
 
-
         send_notification_email(current_user.email, subject=subject, body=message)
         send_notification(db=db, client_id=req.client_id, subject=subject, message=message)
         logger.info(f"Status atualizado com sucesso para o pedido {req.id}")
@@ -234,7 +257,8 @@ def get_request_history(
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
-        if not req or not client or req.client_id != client.id:
+        employee = auth_view.get_employee_by_user_id(db, current_user.id)
+        if not req or (not client and not employee) or (client and req.client_id != client.id):
             logger.warning(f"Request {request_id} not found or unauthorized for user {current_user.id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
         history = (

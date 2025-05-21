@@ -5,8 +5,13 @@ from sqlalchemy.orm import Session
 from bank_credit.app import models, schemas, utils
 from bank_credit.app.utils import send_notification, build_process_graph
 import logging
+from bank_credit.app import models
+
 
 logger = logging.getLogger("bank_credit.views.credit_request")
+
+def list_all_requests(db):
+    return db.query(models.CreditRequest).all()
 
 def get_credit_request(db: Session, request_id: int) -> Optional[models.CreditRequest]:
     logger.info(f"[get_credit_request] Buscando pedido de crédito {request_id}")
