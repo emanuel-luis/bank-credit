@@ -1,5 +1,6 @@
 import uvicorn
 from argparse import ArgumentParser
+import logging
 
 def main():
     parser = ArgumentParser(description="Bank Credit Application")
@@ -20,5 +21,14 @@ def main():
         action="store_true",
         help="Enable auto-reload for development",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=1
+    )
     args = parser.parse_args()
+    level = logging.DEBUG if args.verbose > 1 else logging.INFO if args.verbose == 1 else None
+    if level:
+        logging.basicConfig(level=level, format="%(asctime)s :: %(name)s :: %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     uvicorn.run("bank_credit.app.main:app", host=args.host, port=args.port, reload=args.reload)
