@@ -1,14 +1,17 @@
 # SLA & Overdue handling (migrated from crud.py)
+import logging
 from datetime import datetime, timedelta
+
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
-import logging
 
 from bank_credit.app import models
 from bank_credit.app.utils import send_notification
+
 from .credit_request import update_request_status
 
 logger = logging.getLogger("bank_credit.views.sla")
+
 
 def check_overdue_requests(db: Session):
     logger.info("Verificando pedidos vencidos para SLA...")
@@ -28,10 +31,12 @@ def check_overdue_requests(db: Session):
         logger.info(f"Finalizando pedido {req.id} por prazo excedido")
         update_request_status(db, req, "FINALIZED")
         send_notification(
+            db,
             client_id=req.client_id,
             subject="Pedido finalizado por prazo excedido",
             message="Seu pedido foi finalizado automaticamente após 20 dias sem conclusão.",
         )
+
 
 def check_sla_alerts(db: Session):
     logger.info("Verificando alertas de SLA próximos do vencimento...")
@@ -46,7 +51,6 @@ def check_sla_alerts(db: Session):
     )
     logger.debug(f"Pedidos em andamento: {len(requests)}")
     for req in requests:
-        proc = db.query(models.Process).get(req.current_process_id)
         parts = req.status.split("_")
         sector_name = parts[-1]
         sector = db.query(models.Sector).filter(models.Sector.name == sector_name).first()
@@ -57,6 +61,7 @@ def check_sla_alerts(db: Session):
         if now + timedelta(days=1) >= sla_deadline and now < sla_deadline:
             logger.info(f"Enviando alerta de SLA para pedido {req.id} no setor {sector.name}")
             send_notification(
+                db,
                 client_id=req.client_id,
                 subject="Alerta de SLA próximo do vencimento",
                 message=f"Seu pedido #{req.id} no setor {sector.name} vencerá o SLA em breve.",

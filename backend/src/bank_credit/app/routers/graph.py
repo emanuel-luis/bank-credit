@@ -1,14 +1,15 @@
 # app/routers/graph.py
 
+import logging
+
+import networkx as nx
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-import networkx as nx
-import logging
 
+from bank_credit.app import models
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
-from bank_credit.app import models
 from bank_credit.app.views import utils as utils_view
 
 logger = logging.getLogger("bank_credit.routers.graph")

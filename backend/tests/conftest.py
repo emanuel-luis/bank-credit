@@ -1,27 +1,32 @@
 import os
+from datetime import date, datetime, timedelta
+
 import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from datetime import date, datetime, timedelta
 
-from faker import Faker
+# Test-only values, set before the app modules read the settings.
+os.environ["SECRET_KEY"] = "test-secret-" + "x" * 52
+os.environ["DATABASE_URL"] = "sqlite://"
+
 from bank_credit.app.database import Base, get_db
-from bank_credit.app.main import app
-from bank_credit.app.routers.auth import create_access_token
-from bank_credit.app.models import CreditRequest, Process, Sector, User, Client, Employee
-from bank_credit.app.views.auth import get_password_hash
-
-# Configurar ambiente de teste
-os.environ["TESTING"] = "true"
-
+from bank_credit.app.main import create_app
+from bank_credit.app.models import (
+    Client,
+    CreditRequest,
+    Employee,
+    Process,
+    Sector,
+    User,
+)
+from bank_credit.app.security import create_access_token, get_password_hash
 
 # Configuração do banco de dados de teste
 engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -39,13 +44,14 @@ def db():
 
 @pytest.fixture(scope="function")
 def test_app(db):
+    app = create_app()
+
     def override_get_db():
         yield db
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -86,7 +92,7 @@ def client(db, faker):
 
 @pytest.fixture(scope="function")
 def bearer_token(client):
-    return create_access_token(data={"sub": client.user.email})
+    return create_access_token(client.user.email)
 
 
 @pytest.fixture(scope="function")
@@ -136,6 +142,7 @@ def process(db):
     db.refresh(process)
     return process
 
+
 @pytest.fixture(scope="function")
 def sector(db):
     sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
@@ -143,7 +150,6 @@ def sector(db):
     db.commit()
     db.refresh(sector)
     return sector
-
 
 
 @pytest.fixture(scope="function")
@@ -155,6 +161,8 @@ def credit_request(db, client, process):
         created_at=datetime.now(),
         deliver_date=datetime.now() + timedelta(days=7),
         current_process_id=process.id,
+        purpose="Working capital",
+        term=30,
     )
     db.add(credit_request)
     db.commit()
