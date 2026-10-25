@@ -4,44 +4,26 @@ API de solicitação de crédito bancário com autenticação, checklist, roteam
 
 ## Configuração do Ambiente
 
-1. Crie um ambiente virtual Python:
+1. Instale as dependências (requer [uv](https://docs.astral.sh/uv/)):
 ```bash
-python -m venv venv
+uv sync
 ```
 
-2. Ative o ambiente virtual:
-- Windows:
+2. Crie o arquivo de configuração a partir do exemplo e gere uma chave secreta:
 ```bash
-.\venv\Scripts\activate
+cp .env.example .env
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
-- Linux/Mac:
-```bash
-source venv/bin/activate
-```
-
-3. Instale as dependências:
-```bash
-pip install -r requirements.txt
-```
-
-4. Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
-```env
-SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-DATABASE_URL=sqlite:///./bank_credit.db
-```
+Cole o valor gerado em `SECRET_KEY` no `.env`. A aplicação não inicia sem essa variável.
 
 ## Executando o Projeto
 
-1. Certifique-se de que o ambiente virtual está ativado
-
-2. Execute o servidor:
+Execute o servidor (`--reload` é opcional, para desenvolvimento):
 ```bash
-python -m uvicorn bank_credit.app.main:app --reload
+uv run serve --reload
 ```
 
-3. Acesse a documentação da API:
+Acesse a documentação da API:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 

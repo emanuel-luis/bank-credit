@@ -1,10 +1,10 @@
 # app/schemas.py
 
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional, List
-from datetime import date, datetime
-import re
+
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # --- Authentication models ---
 
@@ -33,12 +33,12 @@ class SectorBase(BaseModel):
     limit: float
     sla_days: int
     require_all: bool
-    manager_id: Optional[int] = None
+    manager_id: int | None = None
 
 
 class Sector(SectorBase):
     id: int
-    groups: Optional[List[Group]] = []
+    groups: list[Group] | None = []
 
     class Config:
         from_attributes = True
@@ -52,8 +52,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    is_superuser: Optional[bool] = False
-    groups: Optional[List[str]] = []
+    is_superuser: bool | None = False
+    groups: list[str] | None = []
 
 
 class ClientBase(BaseModel):
@@ -62,13 +62,13 @@ class ClientBase(BaseModel):
     razao_social: str
     cnae_principal: str
     cnae_principal_desc: str
-    cnae_secundario: Optional[str] = None
-    cnae_secundario_desc: Optional[str] = None
+    cnae_secundario: str | None = None
+    cnae_secundario_desc: str | None = None
     natureza_juridica: str
     natureza_juridica_desc: str
     logradouro: str
     numero: str
-    complemento: Optional[str] = None
+    complemento: str | None = None
     cep: str
     bairro: str
     municipio: str
@@ -86,11 +86,13 @@ class Client(ClientBase):
     class Config:
         from_attributes = True
 
+
 class ClientUser(ClientBase):
-    user: 'User'
+    user: User
 
     class Config:
         from_attributes = True
+
 
 class EmployeeBase(BaseModel):
     matricula: str
@@ -104,6 +106,14 @@ class EmployeeCreate(EmployeeBase):
 class Employee(EmployeeBase):
     id: int
     user_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class EmployeeUser(EmployeeBase):
+    id: int
+    user: User
 
     class Config:
         from_attributes = True
@@ -140,22 +150,27 @@ class CreditRequestBase(BaseModel):
     deliver_date: datetime
     term: int
     purpose: str
-    checklist: Optional[List[bool]] = []
-
+    checklist: list[bool] | None = []
 
 
 class CreditRequestCreate(CreditRequestBase):
-    pass
+    @field_validator("deliver_date")
+    @classmethod
+    def deliver_date_not_in_past(cls, value: datetime) -> datetime:
+        now = datetime.now(value.tzinfo)
+        if value < now:
+            raise ValueError("deliver_date must not be in the past")
+        return value
 
 
 class CreditRequest(CreditRequestBase):
     id: int
-    client: 'ClientUser'
+    client: ClientUser
     client_id: int
     status: str
     created_at: datetime
     updated_at: datetime
-    current_process_id: Optional[int] = None
+    current_process_id: int | None = None
 
 
 # --- Request History Schemas ---
@@ -164,7 +179,7 @@ class CreditRequest(CreditRequestBase):
 class RequestHistoryBase(BaseModel):
     status: str
     timestamp: datetime
-    reason: Optional[str] = None  # Novo campo para motivo
+    reason: str | None = None  # Novo campo para motivo
 
 
 class RequestHistory(RequestHistoryBase):
@@ -181,7 +196,7 @@ class ProcessBase(BaseModel):
 
 class Process(ProcessBase):
     id: int
-    next_process_id: Optional[int] = None
+    next_process_id: int | None = None
 
 
 class User(UserBase):
@@ -191,8 +206,8 @@ class User(UserBase):
     is_client: bool = False
     is_employee: bool = False
     created_at: datetime
-    last_login: Optional[datetime] = None
-    groups: Optional[List[Group]] = []
+    last_login: datetime | None = None
+    groups: list[Group] | None = []
     role: str | None = None
     client: Client | None = None
     employee: Employee | None = None

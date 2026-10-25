@@ -1,5 +1,6 @@
 import pytest
 from fastapi import status
+
 from bank_credit.app.models import Process, Sector
 
 

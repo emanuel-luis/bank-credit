@@ -12,9 +12,9 @@ from sqlalchemy.pool import StaticPool
 os.environ["SECRET_KEY"] = "test-secret-" + "x" * 52
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from bank_credit.app.database import Base, get_db  # noqa: E402
-from bank_credit.app.main import create_app  # noqa: E402
-from bank_credit.app.models import (  # noqa: E402
+from bank_credit.app.database import Base, get_db
+from bank_credit.app.main import create_app
+from bank_credit.app.models import (
     Client,
     CreditRequest,
     Employee,
@@ -22,13 +22,11 @@ from bank_credit.app.models import (  # noqa: E402
     Sector,
     User,
 )
-from bank_credit.app.security import create_access_token, get_password_hash  # noqa: E402
+from bank_credit.app.security import create_access_token, get_password_hash
 
 # Configuração do banco de dados de teste
 engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -144,6 +142,7 @@ def process(db):
     db.refresh(process)
     return process
 
+
 @pytest.fixture(scope="function")
 def sector(db):
     sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
@@ -151,7 +150,6 @@ def sector(db):
     db.commit()
     db.refresh(sector)
     return sector
-
 
 
 @pytest.fixture(scope="function")

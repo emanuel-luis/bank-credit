@@ -1,8 +1,10 @@
+from datetime import datetime
+
 import pytest
-from datetime import datetime, UTC
 from fastapi import status
-from bank_credit.app.models import Notification, User, Client, Employee
 from sqlalchemy import not_
+
+from bank_credit.app.models import Notification
 
 
 @pytest.fixture
@@ -121,7 +123,11 @@ def test_mark_all_notifications_as_read(authorized_user, db, client):
     assert response.json()["message"] == "Todas as notificações foram marcadas como lidas"
 
     # Verify all notifications are marked as read
-    unread_count = db.query(Notification).filter(Notification.client_id == client.id, not_(Notification.read)).count()
+    unread_count = (
+        db.query(Notification)
+        .filter(Notification.client_id == client.id, not_(Notification.read))
+        .count()
+    )
     assert unread_count == 0
 
     # Verify all notifications exist and are marked as read
@@ -151,7 +157,11 @@ def test_get_unread_notifications_count(authorized_user, db, client):
     assert data["count"] == 2  # Half of the notifications are unread
 
     # Verify in database
-    unread_count = db.query(Notification).filter(Notification.client_id == client.id, not_(Notification.read)).count()
+    unread_count = (
+        db.query(Notification)
+        .filter(Notification.client_id == client.id, not_(Notification.read))
+        .count()
+    )
     assert unread_count == 2
 
 

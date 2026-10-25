@@ -1,11 +1,9 @@
+from datetime import datetime, timedelta
+
 import pytest
-from datetime import datetime, UTC, timedelta
-from bank_credit.app.models import Process
 from fastapi import status
-from bank_credit.app.models import RequestHistory, Process, Sector, User, Employee
-from bank_credit.app.models import Sector, Employee, User
 
-
+from bank_credit.app.models import Employee, Process, RequestHistory, Sector, User
 
 
 def test_create_credit_request(authorized_user, db, process):
@@ -14,6 +12,8 @@ def test_create_credit_request(authorized_user, db, process):
         json={
             "amount": 50000.0,
             "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            "term": 30,
+            "purpose": "Working capital",
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -45,14 +45,19 @@ def test_get_nonexistent_credit_request(authorized_user):
 
 
 def test_update_credit_request_status(authorized_user, credit_request, db):
-    response = authorized_user.patch(f"/requests/{credit_request.id}/status", json={"status": "APPROVED"})
+    response = authorized_user.patch(
+        f"/requests/{credit_request.id}/status", json={"status": "APPROVED"}
+    )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == "APPROVED"
 
     # Verificar se o histórico foi atualizado
     history = (
-        db.query(RequestHistory).filter(RequestHistory.request_id == credit_request.id).order_by(RequestHistory.timestamp.desc()).first()
+        db.query(RequestHistory)
+        .filter(RequestHistory.request_id == credit_request.id)
+        .order_by(RequestHistory.timestamp.desc())
+        .first()
     )
     assert history is not None
     assert history.status == "APPROVED"
@@ -89,6 +94,8 @@ def test_create_request_with_invalid_amount(authorized_user):
         json={
             "amount": -1000.0,
             "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            "term": 30,
+            "purpose": "Working capital",
         },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -100,6 +107,8 @@ def test_create_request_with_past_date(authorized_user):
         json={
             "amount": 50000.0,
             "deliver_date": (datetime.now() - timedelta(days=1)).isoformat(),
+            "term": 30,
+            "purpose": "Working capital",
         },
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -113,7 +122,7 @@ def sectors_and_employees(db, faker):
         user = User(
             full_name=faker.name(),
             phone=faker.phone_number(),
-            email=f"employee{i+1}@company.com",
+            email=f"employee{i + 1}@company.com",
             hashed_password=faker.password(),
             is_active=True,
             is_superuser=False,
@@ -124,18 +133,18 @@ def sectors_and_employees(db, faker):
         db.refresh(user)
         funcionario = Employee(
             user_id=user.id,
-            matricula=f"EMP{i+1:03d}",
+            matricula=f"EMP{i + 1:03d}",
             cpf=faker.cpf(),
         )
         db.add(funcionario)
         db.commit()
         db.refresh(funcionario)
         setor = Sector(
-            name=f"Sector {i+1}",
+            name=f"Sector {i + 1}",
             limit=faker.random_number(digits=5),
             sla_days=faker.random_int(min=1, max=30),
             require_all=True,
-            manager_id=funcionario.id
+            manager_id=funcionario.id,
         )
         db.add(setor)
         db.commit()
@@ -150,15 +159,15 @@ def processes(db, sectors_and_employees):
     setores, _ = sectors_and_employees
     processos = []
     for i in range(len(setores)):
-        processo = Process(name=f"Process {i+1}")
+        processo = Process(name=f"Process {i + 1}")
         db.add(processo)
         db.commit()
         db.refresh(processo)
         processo.sectors.append(setores[i])
         db.commit()
         processos.append(processo)
-    for i in range(len(processos)-1):
-        processos[i].next_process_id = processos[i+1].id
+    for i in range(len(processos) - 1):
+        processos[i].next_process_id = processos[i + 1].id
         db.commit()
     return processos
 
@@ -169,6 +178,8 @@ def test_create_credit_request_full_flow(authorized_user, processes):
         json={
             "amount": 50000.0,
             "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            "term": 30,
+            "purpose": "Working capital",
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -179,7 +190,9 @@ def test_create_credit_request_full_flow(authorized_user, processes):
     return data["id"]
 
 
-def test_reject_credit_request_and_return_to_first_process(authorized_user, db, client, processes, sectors_and_employees):
+def test_reject_credit_request_and_return_to_first_process(
+    authorized_user, db, client, processes, sectors_and_employees
+):
     request_id = test_create_credit_request_full_flow(authorized_user, processes)
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[2].name} due to missing documents."
@@ -199,14 +212,16 @@ def test_reject_credit_request_and_return_to_first_process(authorized_user, db, 
     hist_response = authorized_user.get(f"/requests/{request_id}/history")
     assert hist_response.status_code == status.HTTP_200_OK
     hist_data = hist_response.json()
-    print('Request history:', hist_data)  # <-- Adicionado para debug
+    print("Request history:", hist_data)  # <-- Adicionado para debug
     assert any(motivo in (h.get("reason") or "") for h in hist_data)
 
 
-def test_approve_credit_request_and_advance(authorized_user, db, client, processes, sectors_and_employees):
+def test_approve_credit_request_and_advance(
+    authorized_user, db, client, processes, sectors_and_employees
+):
     request_id = test_create_credit_request_full_flow(authorized_user, processes)
     # Aprova em todos os processos
-    for idx, processo in enumerate(processes):
+    for idx, _ in enumerate(processes):
         response = authorized_user.patch(
             f"/requests/{request_id}/status",
             json={"status": "APPROVED"},
@@ -216,7 +231,7 @@ def test_approve_credit_request_and_advance(authorized_user, db, client, process
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         if idx < len(processes) - 1:
-            assert data["current_process_id"] == processes[idx+1].id
+            assert data["current_process_id"] == processes[idx + 1].id
         else:
             assert data["status"] == "APPROVED"
 
@@ -226,7 +241,7 @@ def test_resubmit_after_rejection(authorized_user, db, client, processes, sector
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[5].name} for compliance."
     # Recusa no sexto processo
-    for idx in range(6):
+    for _ in range(6):
         response = authorized_user.patch(
             f"/requests/{request_id}/status",
             json={"status": "APPROVED"},
@@ -244,7 +259,7 @@ def test_resubmit_after_rejection(authorized_user, db, client, processes, sector
     )
     assert response.status_code == status.HTTP_200_OK
     # Aprova até o final
-    for idx in range(6, len(processes)):
+    for _ in range(6, len(processes)):
         response = authorized_user.patch(
             f"/requests/{request_id}/status",
             json={"status": "APPROVED"},
@@ -256,12 +271,14 @@ def test_resubmit_after_rejection(authorized_user, db, client, processes, sector
     assert data["status"] == "APPROVED"
 
 
-def test_notification_on_status_change(authorized_user, db, client, processes, sectors_and_employees):
+def test_notification_on_status_change(
+    authorized_user, db, client, processes, sectors_and_employees
+):
     request_id = test_create_credit_request_full_flow(authorized_user, processes)
     setores, _ = sectors_and_employees
     motivo = f"Rejected at {setores[8].name} for policy."
     # Recusa no nono processo
-    for idx in range(9):
+    for _ in range(9):
         response = authorized_user.patch(
             f"/requests/{request_id}/status",
             json={"status": "APPROVED"},
@@ -274,7 +291,6 @@ def test_notification_on_status_change(authorized_user, db, client, processes, s
     assert response.status_code == status.HTTP_200_OK
     notif_response = authorized_user.get("/notifications/")
     assert notif_response.status_code == status.HTTP_200_OK
-    notifs = notif_response.json()
 
 
 def test_reject_credit_request_due_to_timeout(authorized_user, db, processes):
@@ -284,6 +300,8 @@ def test_reject_credit_request_due_to_timeout(authorized_user, db, processes):
         json={
             "amount": 50000.0,
             "deliver_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            "term": 30,
+            "purpose": "Working capital",
         },
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -291,6 +309,7 @@ def test_reject_credit_request_due_to_timeout(authorized_user, db, processes):
     request_id = data["id"]
     # Força a data de criação para mais de 45 dias atrás
     from bank_credit.app.models import CreditRequest
+
     req = db.query(CreditRequest).get(request_id)
     req.created_at = datetime.now() - timedelta(days=46)
     db.commit()

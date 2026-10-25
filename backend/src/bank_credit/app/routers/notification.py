@@ -1,16 +1,16 @@
 # app/routers/notification.py
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from sqlalchemy.orm import Session
-from typing import List
-from datetime import datetime, UTC
 import logging
-from sqlalchemy import not_
+from datetime import datetime
 
-from bank_credit.app.database import get_db
-from bank_credit.app.routers.auth import get_current_active_user
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy import not_
+from sqlalchemy.orm import Session
+
 from bank_credit.app import models, schemas
+from bank_credit.app.database import get_db
 from bank_credit.app.email import send_notification_email
+from bank_credit.app.routers.auth import get_current_active_user
 from bank_credit.app.views import auth as auth_view
 
 logger = logging.getLogger("bank_credit.routers.notification")
@@ -25,7 +25,9 @@ def get_current_client(
     """Notifications belong to a client (clients.id), not to the login user."""
     client = auth_view.get_client_by_user_id(db, current_user.id)
     if client is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas clientes têm notificações.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Apenas clientes têm notificações."
+        )
     return client
 
 
@@ -36,7 +38,9 @@ async def create_notification(
     client: models.Client = Depends(get_current_client),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"[POST /notifications] User {client.id} - Creating notification: {notification_in.subject}")
+    logger.info(
+        f"[POST /notifications] User {client.id} - Creating notification: {notification_in.subject}"
+    )
     try:
         notification = models.Notification(
             client_id=client.id,
@@ -63,7 +67,7 @@ async def create_notification(
     return notification
 
 
-@router.get("/", response_model=List[schemas.NotificationRead])
+@router.get("/", response_model=list[schemas.NotificationRead])
 def get_notifications(
     client: models.Client = Depends(get_current_client),
     db: Session = Depends(get_db),
@@ -89,7 +93,9 @@ def get_notification(
     client: models.Client = Depends(get_current_client),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"[GET /notifications/{{notification_id}}] User {client.id} - Notification {notification_id}")
+    logger.info(
+        f"[GET /notifications/{{notification_id}}] User {client.id} - Notification {notification_id}"
+    )
     notification = (
         db.query(models.Notification)
         .filter(
@@ -111,7 +117,9 @@ def mark_notification_as_read(
     client: models.Client = Depends(get_current_client),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"[PATCH /notifications/{{notification_id}}/read] User {client.id} - Mark as read {notification_id}")
+    logger.info(
+        f"[PATCH /notifications/{{notification_id}}/read] User {client.id} - Mark as read {notification_id}"
+    )
     notification = (
         db.query(models.Notification)
         .filter(
@@ -137,10 +145,14 @@ def mark_all_notifications_as_read(
 ):
     logger.info(f"[PATCH /notifications/read-all] User {client.id} - Mark all as read")
     try:
-        updated = db.query(models.Notification).filter(
-            models.Notification.client_id == client.id,
-            not_(models.Notification.read),
-        ).update({"read": True}, synchronize_session="fetch")
+        updated = (
+            db.query(models.Notification)
+            .filter(
+                models.Notification.client_id == client.id,
+                not_(models.Notification.read),
+            )
+            .update({"read": True}, synchronize_session="fetch")
+        )
         db.commit()
         logger.debug(f"Marked {updated} notifications as read for user {client.id}")
         return {"message": "Todas as notificações foram marcadas como lidas"}
@@ -156,12 +168,16 @@ def get_unread_notifications_count(
 ):
     logger.info(f"[GET /notifications/unread-count] User {client.id}")
     try:
-        count = db.query(models.Notification).filter(
-            models.Notification.client_id == client.id,
-            not_(models.Notification.read),
-        ).count()
+        count = (
+            db.query(models.Notification)
+            .filter(
+                models.Notification.client_id == client.id,
+                not_(models.Notification.read),
+            )
+            .count()
+        )
         logger.debug(f"User {client.id} has {count} unread notifications")
-        return dict(count=count)
+        return {"count": count}
     except Exception as e:
         logger.error(f"Error getting unread notifications count: {e}")
         raise
@@ -173,7 +189,9 @@ def delete_notification(
     client: models.Client = Depends(get_current_client),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"[DELETE /notifications/{{notification_id}}] User {client.id} - Delete notification {notification_id}")
+    logger.info(
+        f"[DELETE /notifications/{{notification_id}}] User {client.id} - Delete notification {notification_id}"
+    )
     notification = (
         db.query(models.Notification)
         .filter(
@@ -188,4 +206,3 @@ def delete_notification(
     db.delete(notification)
     db.commit()
     logger.info(f"Notification {notification_id} deleted for user {client.id}")
-    return None
