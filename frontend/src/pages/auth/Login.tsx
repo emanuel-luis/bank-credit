@@ -65,7 +65,7 @@ export default function Login() {
           <div className="flex items-center">
             <Building2 className="h-12 w-12 text-primary-600" />
             <h1 className="ml-2 text-3xl font-bold text-primary-600">
-              Banco do Nordeste
+              Bank Credit
             </h1>
           </div>
         </motion.div>

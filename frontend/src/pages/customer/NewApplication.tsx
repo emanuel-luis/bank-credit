@@ -556,7 +556,7 @@ export default function CustomerNewApplication() {
                     <div className="ml-3">
                       <p className="text-sm text-gray-700">
                         By submitting this application, you confirm that all the information provided is accurate and complete.
-                        Your application will be reviewed in accordance with Banco do Nordeste's credit policies.
+                        Your application will be reviewed in accordance with the bank's credit policies.
                       </p>
                     </div>
                   </div>

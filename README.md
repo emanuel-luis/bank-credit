@@ -1,17 +1,17 @@
 
 # Bank Credit
 
-> A bank-credit request platform: a **FastAPI** backend (clean architecture, Alembic
-> migrations, graph-based routing and SLAs) paired with a **React** front end.
+> A bank-credit request platform: a **FastAPI** backend (layered routers/views/models,
+> graph-based routing and SLAs) paired with a **React** front end.
 
-![python](https://img.shields.io/badge/python-3.11+-blue)
+![python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)
 
 ## What this demonstrates
 
 - **API design & data modeling** — credit requests, auth, notifications, and a relational
-  schema managed with **Alembic** migrations.
+  schema in SQLAlchemy.
 - **Routing logic** — graph-based request routing and **SLA** tracking.
 - **Layered backend** — routers / views / models / schemas separation, with a pytest suite.
 - **Full-stack delivery** — typed FastAPI backend + Vite/React front end.
@@ -21,22 +21,22 @@
 ```
 frontend (React/Vite) ──HTTP──► backend (FastAPI)
                                   routers ─► views ─► models (SQLAlchemy) ─► DB
-                                  alembic migrations · graph routing · SLA
+                                  graph routing · SLA
 ```
 
 ## Tech stack
 
-Python · FastAPI · SQLAlchemy + Alembic · pytest · TypeScript · React · Vite.
+Python · FastAPI · SQLAlchemy · pytest · uv · ruff · TypeScript · React · Vite.
 
 ## Quickstart
 
 ```bash
 # backend
 cd backend
-uv sync                      # or: pip install -r requirements.txt
-cp .env.example .env         # set SECRET_KEY, DATABASE_URL, ...
-alembic upgrade head
-python -m bank_credit.scripts.serve   # or: uvicorn ... ; see scripts/serve.py
+uv sync
+cp .env.example .env         # set SECRET_KEY (see backend/README.md)
+uv run populate --seed 42    # optional synthetic demo data
+uv run serve
 
 # frontend
 cd ../frontend
@@ -56,12 +56,6 @@ backend/
 frontend/      # Vite + React app
 ```
 
-## Security note (do before publicizing)
-
-- [ ] **Rotate `SECRET_KEY`** — the current README/`.env` example shows a real-looking key.
-      Replace with an obvious placeholder (`<your-secret-key>`) and regenerate any real secret.
-- [ ] Confirm no `.env` with live values is committed.
-
 ## License
 
-MIT (add a `LICENSE` file).
+MIT, see [LICENSE](LICENSE).

@@ -1,16 +1,28 @@
 # app/main.py
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from bank_credit.app.config import get_settings
+from bank_credit.app.database import init_db
 from bank_credit.app.routers.auth import router as auth_router
 from bank_credit.app.routers.credit_request import router as credit_router
 from bank_credit.app.routers.graph import router as graph_router
 from bank_credit.app.routers.notification import router as notification_router
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Temporary bridge: create missing tables at startup until Alembic owns the schema.
+    init_db()
+    yield
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
+        lifespan=lifespan,
         title="API de Solicitação de Crédito",
         version="1.0.0",
         description=(
