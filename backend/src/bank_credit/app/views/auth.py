@@ -1,33 +1,22 @@
-from typing import Optional
-from sqlalchemy.orm import Session
-from bank_credit.app import models, schemas
-from datetime import datetime
-from passlib.context import CryptContext
 import logging
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from bank_credit.app import models, schemas
+from bank_credit.app.security import get_password_hash
 
 logger = logging.getLogger("bank_credit.views.auth")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    logger.debug(f"[verify_password] Verificando senha para usuário.")
-    result = pwd_context.verify(plain_password, hashed_password)
-    logger.debug(f"[verify_password] Resultado: {result}")
-    return result
-
-def get_password_hash(password: str) -> str:
-    logger.debug(f"[get_password_hash] Gerando hash para senha.")
-    hash_ = pwd_context.hash(password)
-    logger.debug(f"[get_password_hash] Hash gerado.")
-    return hash_
-
-def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+def get_user_by_email(db: Session, email: str) -> models.User | None:
     logger.debug(f"Buscando usuário por email: {email}")
     user = db.query(models.User).filter(models.User.email == email).first()
     logger.debug(f"Resultado: {user}")
     return user
 
-def get_client_by_email(db: Session, email: str) -> Optional[models.Client]:
+
+def get_client_by_email(db: Session, email: str) -> models.Client | None:
     logger.debug(f"Buscando cliente por email: {email}")
     user = get_user_by_email(db, email)
     if not user:
@@ -37,7 +26,8 @@ def get_client_by_email(db: Session, email: str) -> Optional[models.Client]:
     logger.debug(f"Resultado: {client}")
     return client
 
-def get_employee_by_email(db: Session, email: str) -> Optional[models.Employee]:
+
+def get_employee_by_email(db: Session, email: str) -> models.Employee | None:
     logger.debug(f"Buscando funcionário por email: {email}")
     user = get_user_by_email(db, email)
     if not user:
@@ -47,13 +37,14 @@ def get_employee_by_email(db: Session, email: str) -> Optional[models.Employee]:
     logger.debug(f"Resultado: {employee}")
     return employee
 
+
 def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
     logger.info(f"Criando usuário: {user_in.email}")
     db_user = models.User(
         full_name=user_in.full_name,
         phone=user_in.phone,
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password),  # CORRIGIDO: agora hasheia a senha
+        hashed_password=get_password_hash(user_in.password),
         is_active=True,
         is_superuser=user_in.is_superuser or False,
         created_at=datetime.now(),
@@ -71,6 +62,7 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
     db.refresh(db_user)
     logger.info(f"Usuário {db_user.id} salvo com grupos")
     return db_user
+
 
 def create_client(db: Session, client_in: schemas.ClientCreate) -> models.Client:
     logger.info(f"Criando cliente para usuário: {client_in.user.email}")
@@ -100,6 +92,7 @@ def create_client(db: Session, client_in: schemas.ClientCreate) -> models.Client
     logger.info(f"Cliente criado: {db_client}")
     return db_client
 
+
 def create_employee(db: Session, employee_in: schemas.EmployeeCreate) -> models.Employee:
     logger.info(f"Criando funcionário para usuário: {employee_in.user.email}")
     db_user = create_user(db, employee_in.user)
@@ -114,26 +107,35 @@ def create_employee(db: Session, employee_in: schemas.EmployeeCreate) -> models.
     logger.info(f"Funcionário criado: {db_employee}")
     return db_employee
 
-def get_client_by_user_id(db: Session, user_id: int) -> Optional[models.Client]:
+
+def get_client_by_user_id(db: Session, user_id: int) -> models.Client | None:
     logger.debug(f"Buscando cliente por user_id: {user_id}")
     client = db.query(models.Client).filter(models.Client.user_id == user_id).first()
     logger.debug(f"Resultado: {client}")
     return client
 
-def get_employee_by_user_id(db: Session, user_id: int) -> Optional[models.Employee]:
+
+def get_employee_by_user_id(db: Session, user_id: int) -> models.Employee | None:
     logger.debug(f"Buscando funcionário por user_id: {user_id}")
     employee = db.query(models.Employee).filter(models.Employee.user_id == user_id).first()
     logger.debug(f"Resultado: {employee}")
     return employee
 
-def get_user_by_client_id(db: Session, client_id: int) -> Optional[models.User]:
+
+def get_user_by_client_id(db: Session, client_id: int) -> models.User | None:
     logger.debug(f"Buscando usuário por client_id: {client_id}")
     user = db.query(models.User).join(models.Client).filter(models.Client.id == client_id).first()
     logger.debug(f"Resultado: {user}")
     return user
 
-def get_user_by_employee_id(db: Session, employee_id: int) -> Optional[models.User]:
+
+def get_user_by_employee_id(db: Session, employee_id: int) -> models.User | None:
     logger.debug(f"Buscando usuário por employee_id: {employee_id}")
-    user = db.query(models.User).join(models.Employee).filter(models.Employee.id == employee_id).first()
+    user = (
+        db.query(models.User)
+        .join(models.Employee)
+        .filter(models.Employee.id == employee_id)
+        .first()
+    )
     logger.debug(f"Resultado: {user}")
     return user

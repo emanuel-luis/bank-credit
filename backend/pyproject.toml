@@ -1,41 +1,57 @@
 [project]
 name = "bank-credit"
 version = "0.1.0"
-description = "Add your description here"
+description = "FastAPI backend for bank credit requests: checklist, graph-based routing, SLAs and notifications."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.15.2",
-    "bcrypt>=4.3.0",
-    "dotenv>=0.9.9",
-    "email-validator==2.1.0.post1",
-    "faker==20.1.0",
-    "fastapi==0.104.1",
-    "fastapi-mail==1.4.1",
-    "httpx==0.25.2",
-    "jinja2>=3.1.6",
-    "networkx>=3.4.2",
-    "passlib[bcrypt]==1.7.4",
-    "pydantic==2.5.1",
-    "pytest==7.4.3",
-    "pytest-asyncio==0.21.1",
-    "pytest-cov==4.1.0",
-    "python-dotenv==1.0.0",
-    "python-jose[cryptography]==3.3.0",
-    "python-multipart==0.0.6",
-    "sqlalchemy==2.0.23",
-    "uvicorn==0.24.0",
+    "alembic>=1.20",
+    "faker>=40",
+    "fastapi>=0.162",
+    "fastapi-mail>=1.6",
+    "networkx>=3.7",
+    "pwdlib[argon2]>=0.3",
+    "pydantic-settings>=2.16",
+    "pydantic[email]>=2.14",
+    "pyjwt>=2.15",
+    "python-multipart>=0.0.32",
+    "sqlalchemy>=2.1",
+    "uvicorn[standard]>=0.54",
 ]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "bank_credit"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.11.9",
+    "httpx>=0.28",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+    "pytest-timeout>=2.4",
+    "ruff>=0.17",
 ]
 
 [project.scripts]
 serve = "bank_credit.scripts.serve:main"
 populate = "bank_credit.scripts.populate:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# alembic/ is reworked in phase 2
+extend-exclude = ["alembic"]
+
+[tool.ruff.lint]
+extend-select = ["BLE", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+testpaths = ["tests"]
+timeout = 60

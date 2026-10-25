@@ -1,5 +1,6 @@
 from fastapi import status
-from bank_credit.app.models import User, Client, Employee
+
+from bank_credit.app.models import Client, Employee, User
 
 
 def test_register_user(test_app, db, faker):
@@ -26,8 +27,8 @@ def test_register_user(test_app, db, faker):
             "phone": faker.msisdn()[0:11],
             "email": email,
             "password": faker.password(),
-            "groups": []
-        }
+            "groups": [],
+        },
     }
     response = test_app.post("/auth/register/client", json=payload)
     assert response.status_code == status.HTTP_200_OK
@@ -65,8 +66,8 @@ def test_register_existing_email(test_app, db, client, faker):
             "email": client.user.email,
             "password": faker.password(),
             "is_superuser": False,
-            "groups": []
-        }
+            "groups": [],
+        },
     }
     response = test_app.post("/auth/register/client", json=payload)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -138,8 +139,8 @@ def test_register_client_user(test_app, db, faker):
             "email": email,
             "password": faker.password(),
             "is_superuser": False,
-            "groups": []
-        }
+            "groups": [],
+        },
     }
     response = test_app.post("/auth/register/client", json=payload)
     assert response.status_code == status.HTTP_200_OK

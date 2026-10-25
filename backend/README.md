@@ -1,71 +1,58 @@
 # Bank Credit API
 
-API de solicitação de crédito bancário com autenticação, checklist, roteamento por grafo, SLAs e notificações.
+FastAPI backend for bank credit requests: authentication, document checklist, graph-based routing
+between approval stages, SLAs and notifications.
 
-## Configuração do Ambiente
+## Setup
 
-1. Crie um ambiente virtual Python:
+Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 when needed).
+
 ```bash
-python -m venv venv
+uv sync
+cp .env.example .env
+python -c "import secrets; print(secrets.token_hex(32))"   # paste the value into SECRET_KEY
 ```
 
-2. Ative o ambiente virtual:
-- Windows:
+The API refuses to start without `SECRET_KEY` and `DATABASE_URL`. Every setting is documented in
+`.env.example`.
+
+## Run
+
 ```bash
-.\venv\Scripts\activate
+uv run populate --seed 42   # optional: synthetic demo data (Faker)
+uv run serve --reload       # http://127.0.0.1:8000, docs at /docs
 ```
-- Linux/Mac:
+
+Demo users created by `populate` use the password `123`: `admin@admin.com`, `1@funcionario.com`
+(staff) and `1@cliente.com` (customer).
+
+## Test and lint
+
 ```bash
-source venv/bin/activate
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
 ```
 
-3. Instale as dependências:
-```bash
-pip install -r requirements.txt
-```
+## Main endpoints
 
-4. Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
-```env
-SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-DATABASE_URL=sqlite:///./bank_credit.db
-```
+- `POST /auth/token`: login (OAuth2 password form), returns a JWT
+- `POST /auth/register/client`, `POST /auth/register/employee`: sign-up
+- `/requests`: credit requests, status changes, routing and history
+- `/graph`: the approval-stage graph
+- `/notifications`: client notifications
 
-## Executando o Projeto
-
-1. Certifique-se de que o ambiente virtual está ativado
-
-2. Execute o servidor:
-```bash
-python -m uvicorn bank_credit.app.main:app --reload
-```
-
-3. Acesse a documentação da API:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Endpoints Principais
-
-- `/auth/register`: Registro de novos usuários
-- `/auth/token`: Login e obtenção de token JWT
-- `/requests`: Gerenciamento de solicitações de crédito
-- `/graph`: Endpoints relacionados ao fluxo do processo
-- `/notifications`: Sistema de notificações
-
-## Estrutura do Projeto
+## Layout
 
 ```
-bank_credit/
-├── app/
-│   ├── routers/
-│   ├── auth.py
-│   ├── crud.py
-│   ├── database.py
-│   ├── main.py
-│   ├── models.py
-│   ├── schemas.py
-│   └── utils.py
-├── .env
-└── requirements.txt
+src/bank_credit/
+  app/
+    config.py     # settings from env / .env
+    security.py   # password hashing and JWT
+    database.py   # engine, session, get_db
+    models.py  schemas.py  email.py  utils.py
+    routers/      # auth, credit_request, graph, notification
+    views/        # auth, credit_request, routing, sla
+  scripts/        # serve, populate
+tests/
+alembic/
 ```

@@ -1,12 +1,13 @@
 # app/utils.py
 
 import threading
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timedelta
+
 import networkx as nx
 from sqlalchemy.orm import Session
 
-from bank_credit.app.database import SessionLocal
 from bank_credit.app import models
+from bank_credit.app.database import get_sessionmaker
 
 
 def send_notification(db: Session, client_id: int, subject: str, message: str):
@@ -42,15 +43,16 @@ def build_process_graph(db: Session) -> nx.DiGraph:
     return G
 
 
-def schedule_sla_alert(db: Session, request_id: int, sla_days: int):
+def schedule_sla_alert(request_id: int, sla_days: int):
     """
     Agenda um alerta para verificar SLA ultrapassado após `sla_days` dias.
-    Será executado em background via threading.Timer.
+    Será executado em background via threading.Timer, com sessão própria.
     """
 
     def _alert():
+        db = get_sessionmaker()()
         try:
-            req = db.query(models.CreditRequest).get(request_id)
+            req = db.get(models.CreditRequest, request_id)
             if not req:
                 return
 
@@ -59,6 +61,7 @@ def schedule_sla_alert(db: Session, request_id: int, sla_days: int):
                 deadline = req.updated_at + timedelta(days=sla_days)
                 if datetime.now() >= deadline:
                     send_notification(
+                        db,
                         client_id=req.client_id,
                         subject="Alerta de SLA ultrapassado",
                         message=f"Seu pedido #{request_id} ultrapassou o SLA de {sla_days} dias no setor.",
