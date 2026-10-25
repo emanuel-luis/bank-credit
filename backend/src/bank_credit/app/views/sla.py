@@ -28,6 +28,7 @@ def check_overdue_requests(db: Session):
         logger.info(f"Finalizando pedido {req.id} por prazo excedido")
         update_request_status(db, req, "FINALIZED")
         send_notification(
+            db,
             client_id=req.client_id,
             subject="Pedido finalizado por prazo excedido",
             message="Seu pedido foi finalizado automaticamente após 20 dias sem conclusão.",
@@ -57,6 +58,7 @@ def check_sla_alerts(db: Session):
         if now + timedelta(days=1) >= sla_deadline and now < sla_deadline:
             logger.info(f"Enviando alerta de SLA para pedido {req.id} no setor {sector.name}")
             send_notification(
+                db,
                 client_id=req.client_id,
                 subject="Alerta de SLA próximo do vencimento",
                 message=f"Seu pedido #{req.id} no setor {sector.name} vencerá o SLA em breve.",

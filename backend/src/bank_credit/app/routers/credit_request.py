@@ -1,27 +1,20 @@
 # app/routers/credit_request.py
 
 from bank_credit.app.utils import send_notification
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 import logging
-import os
 
 from bank_credit.app import schemas, models
 from bank_credit.app.database import get_db
 from bank_credit.app.routers.auth import get_current_active_user
-from bank_credit.app.routers.notification import send_notification_email
+from bank_credit.app.email import send_notification_email
 from bank_credit.app.views import auth as auth_view
 from bank_credit.app.views import credit_request as credit_view
 from bank_credit.app.views import routing as routing_view
 
-# Configuração global de logging
-LOG_LEVEL = logging.DEBUG if os.environ.get("ENV", "dev") == "dev" else logging.INFO
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("bank_credit.routers.credit_request")
 
 
@@ -57,7 +50,6 @@ def create_credit_request(
     current_user: models.User = Depends(get_current_active_user),
 ):
     logger.info(f"[POST /requests] User {current_user.id} - Creating credit request")
-    logger.debug(f"Request data: {req_in}")
     try:
         client = auth_view.get_client_by_user_id(db, current_user.id)
         if not client:
@@ -182,10 +174,11 @@ def get_estimated_time(
 def update_request_status(
     request_id: int,
     status_update: dict,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ):
-    logger.info(f"[PATCH /requests/{{request_id}}/status] User {current_user.id} - Update status {status_update}")
+    logger.info(f"[PATCH /requests/{{request_id}}/status] User {current_user.id} - Update status of request {request_id}")
     try:
         req = credit_view.get_credit_request(db, request_id)
         client = auth_view.get_client_by_user_id(db, current_user.id)
@@ -239,7 +232,9 @@ def update_request_status(
         if reason:
             message += f" Reason: {reason}"
 
-        send_notification_email(current_user.email, subject=subject, body=message)
+        background_tasks.add_task(
+            send_notification_email, current_user.email, subject=subject, body=message
+        )
         send_notification(db=db, client_id=req.client_id, subject=subject, message=message)
         logger.info(f"Status atualizado com sucesso para o pedido {req.id}")
         return req

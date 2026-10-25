@@ -1,55 +1,42 @@
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+import logging
+from functools import lru_cache
+
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema
 from pydantic import EmailStr
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+from bank_credit.app.config import get_settings
 
-# Configuração condicional para ambiente de teste
-is_testing = os.getenv("TESTING", "false").lower() == "true"
+logger = logging.getLogger("bank_credit.email")
 
-if is_testing:
-    # Configuração mock para testes
+
+@lru_cache
+def get_fastmail() -> FastMail:
+    s = get_settings()
     conf = ConnectionConfig(
-        MAIL_USERNAME="test@example.com",
-        MAIL_PASSWORD="test_password",
-        MAIL_FROM="test@example.com",
-        MAIL_PORT=587,
-        MAIL_SERVER="test_server",
-        MAIL_FROM_NAME="Test System",
+        MAIL_USERNAME=s.mail_username,
+        MAIL_PASSWORD=s.mail_password.get_secret_value(),
+        MAIL_FROM=s.mail_from,
+        MAIL_PORT=s.mail_port,
+        MAIL_SERVER=s.mail_server,
+        MAIL_FROM_NAME=s.mail_from_name,
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
     )
-else:
-    # Configuração real para produção
-    conf = ConnectionConfig(
-        MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
-        MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
-        MAIL_FROM=os.getenv("MAIL_FROM", ""),
-        MAIL_PORT=int(os.getenv("MAIL_PORT", "587")),
-        MAIL_SERVER=os.getenv("MAIL_SERVER", ""),
-        MAIL_FROM_NAME=os.getenv("MAIL_FROM_NAME", "Sistema de Crédito Bancário"),
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=True,
-    )
-
-fastmail = FastMail(conf)
+    return FastMail(conf)
 
 
 async def send_notification_email(email_to: EmailStr, subject: str, body: str):
     """
-    Envia um email de notificação para o usuário
+    Envia um email de notificação para o usuário (apenas registra no log se MAIL_ENABLED=false)
     """
-    if is_testing:
-        # Em ambiente de teste, apenas simula o envio
-        print(f"[TEST] Email would be sent to {email_to}: {subject}")
+    if not get_settings().mail_enabled:
+        logger.info("Email disabled; would send to %s: %s", email_to, subject)
         return
 
     message = MessageSchema(subject=subject, recipients=[email_to], body=body, subtype="html")
 
-    await fastmail.send_message(message)
+    await get_fastmail().send_message(message)
 
 
 async def send_credit_request_status_email(email_to: EmailStr, request_id: int, status: str):
