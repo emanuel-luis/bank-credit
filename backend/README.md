@@ -1,53 +1,58 @@
 # Bank Credit API
 
-API de solicitação de crédito bancário com autenticação, checklist, roteamento por grafo, SLAs e notificações.
+FastAPI backend for bank credit requests: authentication, document checklist, graph-based routing
+between approval stages, SLAs and notifications.
 
-## Configuração do Ambiente
+## Setup
 
-1. Instale as dependências (requer [uv](https://docs.astral.sh/uv/)):
+Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 when needed).
+
 ```bash
 uv sync
-```
-
-2. Crie o arquivo de configuração a partir do exemplo e gere uma chave secreta:
-```bash
 cp .env.example .env
-python -c "import secrets; print(secrets.token_hex(32))"
+python -c "import secrets; print(secrets.token_hex(32))"   # paste the value into SECRET_KEY
 ```
-Cole o valor gerado em `SECRET_KEY` no `.env`. A aplicação não inicia sem essa variável.
 
-## Executando o Projeto
+The API refuses to start without `SECRET_KEY` and `DATABASE_URL`. Every setting is documented in
+`.env.example`.
 
-Execute o servidor (`--reload` é opcional, para desenvolvimento):
+## Run
+
 ```bash
-uv run serve --reload
+uv run populate --seed 42   # optional: synthetic demo data (Faker)
+uv run serve --reload       # http://127.0.0.1:8000, docs at /docs
 ```
 
-Acesse a documentação da API:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+Demo users created by `populate` use the password `123`: `admin@admin.com`, `1@funcionario.com`
+(staff) and `1@cliente.com` (customer).
 
-## Endpoints Principais
+## Test and lint
 
-- `/auth/register`: Registro de novos usuários
-- `/auth/token`: Login e obtenção de token JWT
-- `/requests`: Gerenciamento de solicitações de crédito
-- `/graph`: Endpoints relacionados ao fluxo do processo
-- `/notifications`: Sistema de notificações
+```bash
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
+```
 
-## Estrutura do Projeto
+## Main endpoints
+
+- `POST /auth/token`: login (OAuth2 password form), returns a JWT
+- `POST /auth/register/client`, `POST /auth/register/employee`: sign-up
+- `/requests`: credit requests, status changes, routing and history
+- `/graph`: the approval-stage graph
+- `/notifications`: client notifications
+
+## Layout
 
 ```
-bank_credit/
-├── app/
-│   ├── routers/
-│   ├── auth.py
-│   ├── crud.py
-│   ├── database.py
-│   ├── main.py
-│   ├── models.py
-│   ├── schemas.py
-│   └── utils.py
-├── .env
-└── requirements.txt
+src/bank_credit/
+  app/
+    config.py     # settings from env / .env
+    security.py   # password hashing and JWT
+    database.py   # engine, session, get_db
+    models.py  schemas.py  email.py  utils.py
+    routers/      # auth, credit_request, graph, notification
+    views/        # auth, credit_request, routing, sla
+  scripts/        # serve, populate
+tests/
+alembic/
 ```

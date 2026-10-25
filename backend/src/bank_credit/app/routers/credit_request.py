@@ -283,8 +283,9 @@ def update_request_status(
         if reason:
             message += f" Reason: {reason}"
 
+        # The email goes to the client who owns the request, not to whoever changed it.
         background_tasks.add_task(
-            send_notification_email, current_user.email, subject=subject, body=message
+            send_notification_email, req.client.user.email, subject=subject, body=message
         )
         send_notification(db=db, client_id=req.client_id, subject=subject, message=message)
         logger.info(f"Status atualizado com sucesso para o pedido {req.id}")
