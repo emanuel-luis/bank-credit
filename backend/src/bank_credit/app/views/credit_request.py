@@ -53,6 +53,7 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
         if missing:
             logger.info(f"[create_credit_request] Documentos pendentes para cliente {client.id}: {missing}")
             send_notification(
+                db,
                 client_id=client.id,
                 subject="Pendências na documentação",
                 message=f"Documentos pendentes: {missing}",
@@ -73,6 +74,8 @@ def create_credit_request(db: Session, client: models.Client, req_in: schemas.Cr
     db_req = models.CreditRequest(
         client_id=client.id,
         amount=float(req_in.amount),
+        purpose=req_in.purpose,
+        term=req_in.term,
         status=status,
         created_at=now,
         updated_at=now,

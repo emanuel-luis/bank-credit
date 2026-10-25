@@ -1,35 +1,33 @@
 # app/database.py
+from collections.abc import Iterator
+from functools import lru_cache
 
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-# Carrega as variáveis de ambiente
-load_dotenv()
-
-# URL de conexão do banco de dados
-DATABASE_CONNECTION_URI = os.getenv("DATABASE_CONNECTION_URI")
-
-# Cria o engine do SQLAlchemy
-engine = create_engine(DATABASE_CONNECTION_URI)
-
-# Cria uma classe SessionLocal que gerencia as sessões do banco
-SessionLocal = sessionmaker(autocommit=False, autoflush=True, bind=engine)
+from bank_credit.app.config import get_settings
 
 # Base declarativa para todos os modelos
 Base = declarative_base()
 
 
-def get_db():
+@lru_cache
+def get_engine() -> Engine:
+    return create_engine(get_settings().database_url)
+
+
+@lru_cache
+def get_sessionmaker() -> sessionmaker[Session]:
+    return sessionmaker(autocommit=False, autoflush=True, bind=get_engine())
+
+
+def get_db() -> Iterator[Session]:
     """
     Dependência do FastAPI para obter uma sessão do banco de dados.
     Use em endpoints com:
         db: Session = Depends(get_db)
     """
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-
+    db = get_sessionmaker()()
     try:
         yield db
     finally:
@@ -40,4 +38,4 @@ def init_db():
     """
     Inicializa o banco de dados, criando todas as tabelas.
     """
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())

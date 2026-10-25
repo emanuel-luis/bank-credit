@@ -1,11 +1,10 @@
 import logging
 
-logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.CRITICAL)
 logging.basicConfig(level=logging.INFO, force=True, datefmt="%Y-%m-%d %H:%M:%S", format="%(asctime)s - %(name)s - %(levelname)s: %(message)s")
 logger = logging.getLogger("bank_credit.populate")
 
 from datetime import datetime, timedelta
-from bank_credit.app.database import SessionLocal, engine, Base
+from bank_credit.app.database import Base, get_engine, get_sessionmaker
 from bank_credit.app.models import (
     Client,
     Sector,
@@ -16,15 +15,15 @@ from bank_credit.app.models import (
     User,
     Employee,
 )
-from bank_credit.app.views.auth import get_password_hash
+from bank_credit.app.security import get_password_hash
 import argparse
 import random
 from faker import Faker
 from sqlalchemy.exc import IntegrityError
 
 def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, only=None):
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+    Base.metadata.create_all(bind=get_engine())
+    db = get_sessionmaker()()
     fake = Faker('pt_BR')
     if seed is not None:
         Faker.seed(seed)
@@ -32,8 +31,8 @@ def populate_db(clients=200, sectors=8, processes=6, force=False, seed=None, onl
     try:
         if force:
             logger.info("Forçando repopulação: limpando todas as tabelas...")
-            Base.metadata.drop_all(bind=engine)
-            Base.metadata.create_all(bind=engine)
+            Base.metadata.drop_all(bind=get_engine())
+            Base.metadata.create_all(bind=get_engine())
         elif db.query(Client).first():
             logger.info("Banco de dados já possui dados. Use --force para repopular.")
             return
