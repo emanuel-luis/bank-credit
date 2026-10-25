@@ -1,19 +1,25 @@
 # Routing / Graph-based process flow (migrated from crud.py)
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from bank_credit.app import models, utils
-from .credit_request import update_request_status, record_history
 import logging
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from bank_credit.app import models, utils
+
+from .credit_request import record_history, update_request_status
 
 logger = logging.getLogger("bank_credit.views.routing")
 
 THRESHOLD_CREDIT_LIMIT_DAYS = timedelta(days=45)
 
+
 def route_credit_request(db: Session, request: models.CreditRequest):
     logger.info(f"Roteando pedido {request.id} (processo atual: {request.current_process_id})")
     # Recusa automática se o tempo de requisição exceder o threshold
     if datetime.now() - request.created_at >= THRESHOLD_CREDIT_LIMIT_DAYS:
-        logger.warning(f"Pedido {request.id} excedeu o tempo limite de {THRESHOLD_CREDIT_LIMIT_DAYS.days} dias. Recusando automaticamente.")
+        logger.warning(
+            f"Pedido {request.id} excedeu o tempo limite de {THRESHOLD_CREDIT_LIMIT_DAYS.days} dias. Recusando automaticamente."
+        )
         return update_request_status(db, request, "REJECTED_TIMEOUT")
     G = utils.build_process_graph(db)
     if request.current_process_id is None:
@@ -35,7 +41,9 @@ def route_credit_request(db: Session, request: models.CreditRequest):
         logger.warning(f"Nenhum setor elegível para o pedido {request.id}")
         return update_request_status(db, request, "REJECTED_NO_SECTOR")
     target_sector = eligible_sectors[0]
-    logger.info(f"Avançando pedido {request.id} para processo {next_proc.id} e setor {target_sector.name}")
+    logger.info(
+        f"Avançando pedido {request.id} para processo {next_proc.id} e setor {target_sector.name}"
+    )
     request.current_process_id = next_proc.id
     request.status = f"PENDING_{next_proc.name.upper()}_{target_sector.name.upper()}"
     request.updated_at = datetime.now()

@@ -1,14 +1,12 @@
 # app/auth.py
 
 import logging
-from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from bank_credit.app import models, schemas
-from bank_credit.app.config import get_settings
 from bank_credit.app.database import get_db
 from bank_credit.app.email import send_welcome_email
 from bank_credit.app.security import create_access_token, decode_access_token, verify_password
@@ -21,17 +19,21 @@ logger = logging.getLogger("bank_credit.routers.auth")
 
 # --- Authentication dependencies ---
 
+
 async def authenticate_user(db: Session, email: str, password: str) -> models.User | None:
     logger.info(f"[authenticate_user] Autenticando usuário {email}")
     user = auth_view.get_user_by_email(db, email)
     if not user:
-            return None
+        return None
     if not verify_password(password, user.hashed_password) or not user.is_active:
-            return None
+        return None
     return user
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
-    logger.info(f"[get_current_user] Validando token JWT.")
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> models.User:
+    logger.info("[get_current_user] Validando token JWT.")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
@@ -47,20 +49,29 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
+
 async def get_current_active_user(
     current_user: models.User = Depends(get_current_user),
 ) -> models.User:
-    logger.info(f"[get_current_active_user] Verificando se usuário {getattr(current_user, 'id', None)} está ativo.")
+    logger.info(
+        f"[get_current_active_user] Verificando se usuário {getattr(current_user, 'id', None)} está ativo."
+    )
     if not current_user.is_active:
-        logger.warning(f"[get_current_active_user] Usuário {getattr(current_user, 'id', None)} inativo.")
+        logger.warning(
+            f"[get_current_active_user] Usuário {getattr(current_user, 'id', None)} inativo."
+        )
         raise HTTPException(status_code=400, detail="Usuário inativo")
-    logger.debug(f"[get_current_active_user] Usuário ativo.")
+    logger.debug("[get_current_active_user] Usuário ativo.")
     return current_user
+
 
 # --- Auth endpoints ---
 
+
 @router.post("/token", response_model=schemas.Token, tags=["auth"])
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
     logger.info(f"[POST /auth/token] Login attempt for {form_data.username}")
     try:
         user = await authenticate_user(db, form_data.username, form_data.password)
@@ -78,7 +89,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         logger.error(f"[POST /auth/token] Error during login: {e}")
         raise
 
-@router.post("/register/client", response_model=schemas.Client, tags=["auth"])
+
+@router.post("/register/client", response_model=schemas.ClientUser, tags=["auth"])
 async def register_client(
     client: schemas.ClientCreate,
     background_tasks: BackgroundTasks,
@@ -90,17 +102,24 @@ async def register_client(
             logger.warning(f"[POST /auth/register/client] CNPJ {client.cnpj} already registered")
             raise HTTPException(status_code=400, detail="CNPJ já cadastrado")
         if db.query(models.User).filter(models.User.email == client.user.email).first():
-            logger.warning(f"[POST /auth/register/client] Email {client.user.email} already registered")
+            logger.warning(
+                f"[POST /auth/register/client] Email {client.user.email} already registered"
+            )
             raise HTTPException(status_code=400, detail="Email já cadastrado")
         db_client = auth_view.create_client(db, client)
-        background_tasks.add_task(send_welcome_email, str(db_client.user.email), str(db_client.user.full_name))
-        logger.info(f"[POST /auth/register/client] Client {client.user.email} registered successfully")
+        background_tasks.add_task(
+            send_welcome_email, str(db_client.user.email), str(db_client.user.full_name)
+        )
+        logger.info(
+            f"[POST /auth/register/client] Client {client.user.email} registered successfully"
+        )
         return db_client
     except Exception as e:
         logger.error(f"[POST /auth/register/client] Error registering client: {e}")
         raise
 
-@router.post("/register/employee", response_model=schemas.Employee, tags=["auth"])
+
+@router.post("/register/employee", response_model=schemas.EmployeeUser, tags=["auth"])
 async def register_employee(
     employee: schemas.EmployeeCreate,
     background_tasks: BackgroundTasks,
@@ -108,25 +127,40 @@ async def register_employee(
 ):
     logger.info(f"[POST /auth/register/employee] Register employee {employee.user.email}")
     try:
-        if db.query(models.Employee).filter(models.Employee.matricula == employee.matricula).first():
-            logger.warning(f"[POST /auth/register/employee] Matrícula {employee.matricula} already registered")
+        if (
+            db.query(models.Employee)
+            .filter(models.Employee.matricula == employee.matricula)
+            .first()
+        ):
+            logger.warning(
+                f"[POST /auth/register/employee] Matrícula {employee.matricula} already registered"
+            )
             raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
         if db.query(models.Employee).filter(models.Employee.cpf == employee.cpf).first():
             logger.warning(f"[POST /auth/register/employee] CPF {employee.cpf} already registered")
             raise HTTPException(status_code=400, detail="CPF já cadastrado")
         if db.query(models.User).filter(models.User.email == employee.user.email).first():
-            logger.warning(f"[POST /auth/register/employee] Email {employee.user.email} already registered")
+            logger.warning(
+                f"[POST /auth/register/employee] Email {employee.user.email} already registered"
+            )
             raise HTTPException(status_code=400, detail="Email já cadastrado")
         db_employee = auth_view.create_employee(db, employee)
-        background_tasks.add_task(send_welcome_email, str(db_employee.user.email), str(db_employee.user.full_name))
-        logger.info(f"[POST /auth/register/employee] Employee {employee.user.email} registered successfully")
+        background_tasks.add_task(
+            send_welcome_email, str(db_employee.user.email), str(db_employee.user.full_name)
+        )
+        logger.info(
+            f"[POST /auth/register/employee] Employee {employee.user.email} registered successfully"
+        )
         return db_employee
     except Exception as e:
         logger.error(f"[POST /auth/register/employee] Error registering employee: {e}")
         raise
 
+
 @router.get("/me", response_model=schemas.User, tags=["auth"])
-async def read_users_me(current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+async def read_users_me(
+    current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)
+):
     logger.info(f"[GET /auth/me] User {current_user.id}")
     logger.debug(f"[GET /auth/me] Getting user info for user_id={current_user.id}")
     return current_user

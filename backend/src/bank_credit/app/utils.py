@@ -1,12 +1,13 @@
 # app/utils.py
 
 import threading
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timedelta
+
 import networkx as nx
 from sqlalchemy.orm import Session
 
-from bank_credit.app.database import get_sessionmaker
 from bank_credit.app import models
+from bank_credit.app.database import get_sessionmaker
 
 
 def send_notification(db: Session, client_id: int, subject: str, message: str):

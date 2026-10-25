@@ -1,19 +1,20 @@
 # app/models.py
 
+from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
     Column,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    DateTime,
-    ForeignKey,
     Table,
-    Boolean,
     Text,
-    Date,
 )
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 from bank_credit.app.database import Base
 
 # Association table: which sectors approve which processes
@@ -44,6 +45,7 @@ sector_groups = Table(
 class User(Base):
     def __str__(self):
         return f"User {self.id} - {self.full_name} - {self.email}"
+
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String, nullable=False)
@@ -59,6 +61,7 @@ class User(Base):
     # One-to-one: user <-> client/employee
     client = relationship("Client", uselist=False, back_populates="user")
     employee = relationship("Employee", uselist=False, back_populates="user")
+
     @property
     def is_client(self):
         return self.client is not None
@@ -76,9 +79,11 @@ class User(Base):
         elif self.is_employee:
             return "staff"
 
+
 class Client(Base):
     def __str__(self):
         return f"Client {self.id} - {self.nome_fantasia} - {self.cnpj} - ({self.user})"
+
     __tablename__ = "clients"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
@@ -106,6 +111,7 @@ class Client(Base):
 class Employee(Base):
     def __str__(self):
         return f"Employee {self.id} - {self.matricula} - {self.cpf} - ({self.user})"
+
     __tablename__ = "employees"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
@@ -118,6 +124,7 @@ class Employee(Base):
 class Group(Base):
     def __str__(self):
         return f"Group {self.id} - {self.name}"
+
     __tablename__ = "groups"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
@@ -128,6 +135,7 @@ class Group(Base):
 class Sector(Base):
     def __str__(self):
         return f"Sector {self.id} - {self.name} - ({self.manager})"
+
     __tablename__ = "sectors"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
@@ -143,6 +151,7 @@ class Sector(Base):
 class Process(Base):
     def __str__(self):
         return f"Process {self.id} - {self.name} - ({self.next_process})"
+
     __tablename__ = "processes"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -159,6 +168,7 @@ class Process(Base):
 class CreditRequest(Base):
     def __str__(self):
         return f"CreditRequest {self.id} - {self.client} - {self.amount} - {self.status}"
+
     __tablename__ = "credit_requests"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -182,6 +192,7 @@ class CreditRequest(Base):
 class RequestHistory(Base):
     def __str__(self):
         return f"RequestHistory {self.id} - {self.request_id} - {self.status} - {self.timestamp} - {self.reason}"
+
     __tablename__ = "request_history"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -197,6 +208,7 @@ class RequestHistory(Base):
 class Notification(Base):
     def __str__(self):
         return f"Notification {self.id} - {self.client_id} - {self.subject} - {self.read}"
+
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
