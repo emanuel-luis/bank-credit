@@ -119,44 +119,6 @@ async def register_client(
         raise
 
 
-@router.post("/register/employee", response_model=schemas.EmployeeUser, tags=["auth"])
-async def register_employee(
-    employee: schemas.EmployeeCreate,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    logger.info(f"[POST /auth/register/employee] Register employee {employee.user.email}")
-    try:
-        if (
-            db.query(models.Employee)
-            .filter(models.Employee.matricula == employee.matricula)
-            .first()
-        ):
-            logger.warning(
-                f"[POST /auth/register/employee] Matrícula {employee.matricula} already registered"
-            )
-            raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
-        if db.query(models.Employee).filter(models.Employee.cpf == employee.cpf).first():
-            logger.warning(f"[POST /auth/register/employee] CPF {employee.cpf} already registered")
-            raise HTTPException(status_code=400, detail="CPF já cadastrado")
-        if db.query(models.User).filter(models.User.email == employee.user.email).first():
-            logger.warning(
-                f"[POST /auth/register/employee] Email {employee.user.email} already registered"
-            )
-            raise HTTPException(status_code=400, detail="Email já cadastrado")
-        db_employee = auth_view.create_employee(db, employee)
-        background_tasks.add_task(
-            send_welcome_email, str(db_employee.user.email), str(db_employee.user.full_name)
-        )
-        logger.info(
-            f"[POST /auth/register/employee] Employee {employee.user.email} registered successfully"
-        )
-        return db_employee
-    except Exception as e:
-        logger.error(f"[POST /auth/register/employee] Error registering employee: {e}")
-        raise
-
-
 @router.get("/me", response_model=schemas.User, tags=["auth"])
 async def read_users_me(
     current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)

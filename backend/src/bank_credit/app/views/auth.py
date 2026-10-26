@@ -46,21 +46,12 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),
         is_active=True,
-        is_superuser=user_in.is_superuser or False,
         created_at=datetime.now(),
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     logger.debug(f"Usuário criado: {db_user}")
-    if user_in.groups:
-        for group_name in user_in.groups:
-            group = db.query(models.Group).filter_by(name=group_name).first()
-            if group:
-                db_user.groups.append(group)
-    db.commit()
-    db.refresh(db_user)
-    logger.info(f"Usuário {db_user.id} salvo com grupos")
     return db_user
 
 
@@ -91,21 +82,6 @@ def create_client(db: Session, client_in: schemas.ClientCreate) -> models.Client
     db.refresh(db_client)
     logger.info(f"Cliente criado: {db_client}")
     return db_client
-
-
-def create_employee(db: Session, employee_in: schemas.EmployeeCreate) -> models.Employee:
-    logger.info(f"Criando funcionário para usuário: {employee_in.user.email}")
-    db_user = create_user(db, employee_in.user)
-    db_employee = models.Employee(
-        user_id=db_user.id,
-        matricula=employee_in.matricula,
-        cpf=employee_in.cpf,
-    )
-    db.add(db_employee)
-    db.commit()
-    db.refresh(db_employee)
-    logger.info(f"Funcionário criado: {db_employee}")
-    return db_employee
 
 
 def get_client_by_user_id(db: Session, user_id: int) -> models.Client | None:
