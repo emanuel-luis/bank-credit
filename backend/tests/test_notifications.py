@@ -1,179 +1,89 @@
-from datetime import datetime
-
 import pytest
+from conftest import T0
 from fastapi import status
-from sqlalchemy import not_
+from sqlalchemy import select
 
 from bank_credit.app.models import Notification
 
 
 @pytest.fixture
-def test_notification(db, client):
-    notification = Notification(
-        client_id=client.id,
-        subject="Test Notification",
-        message="This is a test notification",
-        read=False,
-        created_at=datetime.now(),
+def notification(db, customer):
+    row = Notification(
+        client_id=customer.client.id, subject="Subject", message="Message", created_at=T0
     )
-    db.add(notification)
+    db.add(row)
     db.commit()
-    db.refresh(notification)
-    return notification
+    return row
 
 
-@pytest.fixture
-def test_notification_client(db, test_client_user):
-    notification = Notification(
-        client_id=test_client_user.id,
-        subject="Test Notification",
-        message="This is a test notification",
-        read=False,
-        created_at=datetime.now(),
+def test_clients_cannot_create_notifications(test_app, auth, customer):
+    response = test_app.post(
+        "/notifications/", json={"subject": "x", "message": "y"}, headers=auth(customer)
     )
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
-    return notification
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
-@pytest.fixture
-def test_notification_employee(db, test_employee_user):
-    notification = Notification(
-        client_id=None,  # Ajuste conforme modelo se necessário
-        subject="Test Notification",
-        message="This is a test notification for employee",
-        read=False,
-        created_at=datetime.now(),
-    )
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
-    return notification
+def test_list_and_get(test_app, auth, customer, notification):
+    listing = test_app.get("/notifications/", headers=auth(customer))
+    assert listing.status_code == status.HTTP_200_OK
+    assert [n["id"] for n in listing.json()] == [notification.id]
+    assert listing.json()[0]["read_at"] is None
+    one = test_app.get(f"/notifications/{notification.id}", headers=auth(customer))
+    assert one.json()["subject"] == "Subject"
 
 
-def test_create_notification(authorized_user, db):
-    response = authorized_user.post(
-        "/notifications/",
-        json={
-            "subject": "New Test Notification",
-            "message": "This is a test notification with email",
-        },
-    )
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["subject"] == "New Test Notification"
-    assert data["message"] == "This is a test notification with email"
-    assert not data["read"]
-    # O email será "enviado" em background no ambiente de teste
-
-
-def test_get_notifications(authorized_user, db, test_notification):
-    response = authorized_user.get("/notifications/")
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert any(n["subject"] == "Test Notification" for n in data)
-
-
-def test_get_notification_by_id(authorized_user, db, test_notification):
-    response = authorized_user.get(f"/notifications/{test_notification.id}")
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["id"] == test_notification.id
-    assert data["subject"] == "Test Notification"
-
-
-def test_get_nonexistent_notification(authorized_user):
-    response = authorized_user.get("/notifications/999")
+def test_get_nonexistent(test_app, auth, customer):
+    response = test_app.get("/notifications/999", headers=auth(customer))
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "notification_not_found"
 
 
-def test_mark_notification_as_read(authorized_user, test_notification, db):
-    response = authorized_user.patch(f"/notifications/{test_notification.id}/read")
+def test_other_clients_notifications_are_hidden(test_app, auth, other_customer, notification):
+    assert (
+        test_app.get(f"/notifications/{notification.id}", headers=auth(other_customer)).status_code
+        == 404
+    )
+    assert (
+        test_app.delete(
+            f"/notifications/{notification.id}", headers=auth(other_customer)
+        ).status_code
+        == 404
+    )
+    assert test_app.get("/notifications/", headers=auth(other_customer)).json() == []
+
+
+def test_staff_have_no_notifications(test_app, auth, retail_staff):
+    assert test_app.get("/notifications/", headers=auth(retail_staff)).status_code == 403
+
+
+def test_mark_as_read(test_app, auth, db, clock, customer, notification):
+    response = test_app.patch(f"/notifications/{notification.id}/read", headers=auth(customer))
     assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["read"] is True
-
-    # Verificar no banco de dados
-    db_notification = db.query(Notification).filter(Notification.id == test_notification.id).first()
-    assert db_notification.read is True
+    assert response.json()["read_at"] == "2026-01-05T10:00:00Z"
+    db.refresh(notification)
+    assert notification.read_at == clock.now
 
 
-def test_mark_all_notifications_as_read(authorized_user, db, client):
-    # Refresh test_user to ensure it's attached to the session
-    db.refresh(client)
-
-    # Create multiple notifications
-    notifications = [
-        Notification(
-            client_id=client.id,
-            subject=f"Test Notification {i}",
-            message=f"This is test notification {i}",
-            read=False,
-            created_at=datetime.now(),
-        )
+def test_mark_all_and_unread_count(test_app, auth, db, customer):
+    db.add_all(
+        Notification(client_id=customer.client.id, subject=f"s{i}", message="m", created_at=T0)
         for i in range(3)
-    ]
-    db.add_all(notifications)
-    db.commit()
-    response = authorized_user.patch("/notifications/read-all")
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["message"] == "Todas as notificações foram marcadas como lidas"
-
-    # Verify all notifications are marked as read
-    unread_count = (
-        db.query(Notification)
-        .filter(Notification.client_id == client.id, not_(Notification.read))
-        .count()
     )
-    assert unread_count == 0
-
-    # Verify all notifications exist and are marked as read
-    all_notifications = db.query(Notification).filter(Notification.client_id == client.id).all()
-    assert len(all_notifications) == 3
-    assert all(n.read for n in all_notifications)
-
-
-def test_get_unread_notifications_count(authorized_user, db, client):
-    # Create notifications with alternating read status
-    notifications = [
-        Notification(
-            client_id=client.id,
-            subject=f"Test Notification {i}",
-            message=f"This is test notification {i}",
-            read=i % 2 == 0,  # Alternate between read and unread
-            created_at=datetime.now(),
-        )
-        for i in range(4)
-    ]
-    db.add_all(notifications)
     db.commit()
-
-    response = authorized_user.get("/notifications/unread-count")
+    assert test_app.get("/notifications/unread-count", headers=auth(customer)).json() == {
+        "count": 3
+    }
+    response = test_app.patch("/notifications/read-all", headers=auth(customer))
     assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["count"] == 2  # Half of the notifications are unread
-
-    # Verify in database
-    unread_count = (
-        db.query(Notification)
-        .filter(Notification.client_id == client.id, not_(Notification.read))
-        .count()
-    )
-    assert unread_count == 2
+    assert response.json() == {"updated": 3}
+    assert test_app.get("/notifications/unread-count", headers=auth(customer)).json() == {
+        "count": 0
+    }
+    assert all(n.read_at == T0 for n in db.scalars(select(Notification)))
 
 
-def test_delete_notification(authorized_user, test_notification, db):
-    response = authorized_user.delete(f"/notifications/{test_notification.id}")
+def test_delete(test_app, auth, db, customer, notification):
+    response = test_app.delete(f"/notifications/{notification.id}", headers=auth(customer))
     assert response.status_code == status.HTTP_204_NO_CONTENT
-
-    # Verificar se a notificação foi realmente deletada
-    db_notification = db.query(Notification).filter(Notification.id == test_notification.id).first()
-    assert db_notification is None
-
-
-def test_delete_nonexistent_notification(authorized_user):
-    response = authorized_user.delete("/notifications/999")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert db.get(Notification, notification.id) is None
+    assert test_app.delete("/notifications/999", headers=auth(customer)).status_code == 404
