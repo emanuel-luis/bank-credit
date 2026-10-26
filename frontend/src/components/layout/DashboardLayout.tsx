@@ -5,7 +5,6 @@ import {
   BarChart3, 
   FileText, 
   Home, 
-  Users, 
   Settings, 
   Bell, 
   LogOut, 
@@ -15,30 +14,28 @@ import {
 } from 'lucide-react';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import Button from '../ui/Button';
+import { ROLE_LABELS } from '../../lib/labels';
 
-// Define navigation based on user roles
+// Manager and admin share the staff queue pages; Reports and Settings are placeholders.
 const navigationByRole: Record<UserRole, Array<{ name: string; href: string; icon: typeof Home }>> = {
   customer: [
-    { name: 'Dashboard', href: '/customer', icon: Home },
-    { name: 'Applications', href: '/customer/applications', icon: FileText },
+    { name: 'Painel', href: '/customer', icon: Home },
+    { name: 'Solicitações', href: '/customer/applications', icon: FileText },
   ],
   staff: [
-    { name: 'Dashboard', href: '/staff', icon: Home },
-    { name: 'Applications', href: '/staff/applications', icon: FileText },
+    { name: 'Painel', href: '/staff', icon: Home },
+    { name: 'Fila', href: '/staff/applications', icon: FileText },
   ],
   manager: [
-    { name: 'Dashboard', href: '/manager', icon: Home },
-    { name: 'Applications', href: '/manager/applications', icon: FileText },
-    { name: 'Team', href: '/manager/team', icon: Users },
-    { name: 'Reports', href: '/manager/reports', icon: BarChart3 },
+    { name: 'Painel', href: '/manager', icon: Home },
+    { name: 'Fila', href: '/manager/applications', icon: FileText },
+    { name: 'Relatórios', href: '/manager/reports', icon: BarChart3 },
   ],
   admin: [
-    { name: 'Dashboard', href: '/admin', icon: Home },
-    { name: 'Applications', href: '/admin/applications', icon: FileText },
-    { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'Departments', href: '/admin/departments', icon: Building2 },
-    { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
-    { name: 'Settings', href: '/admin/settings', icon: Settings },
+    { name: 'Painel', href: '/admin', icon: Home },
+    { name: 'Solicitações', href: '/admin/applications', icon: FileText },
+    { name: 'Relatórios', href: '/admin/reports', icon: BarChart3 },
+    { name: 'Configurações', href: '/admin/settings', icon: Settings },
   ],
 };
 
@@ -89,7 +86,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 onClick={() => setSidebarOpen(false)}
               >
-                <span className="sr-only">Close sidebar</span>
+                <span className="sr-only">Fechar menu</span>
                 <X className="h-6 w-6 text-white" aria-hidden="true" />
               </button>
             </div>
@@ -131,7 +128,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="flex items-center">
                   <div className="bg-gray-200 rounded-full h-10 w-10 flex items-center justify-center">
                     <span className="text-gray-600 font-medium">
-                      {user.full_name.split('').map(n => n[0]).join('')}
+                      {user.full_name.split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div className="ml-3">
@@ -139,8 +136,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       {user.full_name}
                     </p>
                     <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700">
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                      {user.department && ` - ${user.department}`}
+                      {ROLE_LABELS[user.role]}
+                      {user.employee?.sector && ` - ${user.employee.sector.name}`}
                     </p>
                   </div>
                 </div>
@@ -197,8 +194,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {user.full_name}
                   </p>
                   <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    {user.department && ` - ${user.department}`}
+                    {ROLE_LABELS[user.role]}
+                    {user.employee?.sector && ` - ${user.employee.sector.name}`}
                   </p>
                 </div>
                 <Button
@@ -206,7 +203,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   size="sm"
                   className="ml-2"
                   onClick={handleLogout}
-                  aria-label="Logout"
+                  aria-label="Sair"
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -223,7 +220,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
             onClick={() => setSidebarOpen(true)}
           >
-            <span className="sr-only">Open sidebar</span>
+            <span className="sr-only">Abrir menu</span>
             <Menu className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
@@ -239,14 +236,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     </h1>
                     <div className="flex items-center space-x-4">
                       <button className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        <span className="sr-only">View notifications</span>
+                        <span className="sr-only">Ver notificações</span>
                         <Bell className="h-6 w-6" aria-hidden="true" />
                         <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-error-500 ring-2 ring-white"></span>
                       </button>
                       <div className="md:hidden">
                         <Button variant="outline" size="sm" onClick={handleLogout}>
                           <LogOut className="h-4 w-4 mr-2" />
-                          Logout
+                          Sair
                         </Button>
                       </div>
                     </div>

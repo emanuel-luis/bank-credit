@@ -1,86 +1,54 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import api from '../api';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchMe, login as apiLogin } from '../api/auth';
+import { tokenStore } from '../api/client';
+import type { Me, Role } from '../api/types';
 
-export type UserRole = 'customer' | 'staff' | 'manager' | 'admin';
-
-interface User {
-  id: string;
-  full_name: string;
-  email: string;
-  role: UserRole;
-  department?: string;
-}
+export type UserRole = Role;
 
 interface AuthContextType {
-  user: User | null;
+  user: Me | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<Me>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<Me | null>(null);
+  const [isLoading, setIsLoading] = useState(() => tokenStore.get() !== null);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('access_token');
-    if (storedToken) {
-      api.get('/auth/me')
-        .then(res => {
-          setUser(res.data);
-        })
-        .catch(() => {
-          setUser(null);
-          localStorage.removeItem('access_token');
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+    if (!tokenStore.get()) return;
+    fetchMe()
+      .then(setUser)
+      .catch(() => tokenStore.clear())
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
+    tokenStore.set(await apiLogin(email, password));
     try {
-      const params = new URLSearchParams();
-      params.append('username', email);
-      params.append('password', password);
-      const res = await api.post('/auth/token', params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      });
-      localStorage.setItem('access_token', res.data.access_token);
-      const me = await api.get('/auth/me');
-      setUser(me.data);
-      localStorage.setItem('user', JSON.stringify(me.data));
+      const me = await fetchMe();
+      setUser(me);
+      return me;
     } catch (err) {
-      setUser(null);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
+      tokenStore.clear();
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const logout = () => {
+    tokenStore.clear();
     setUser(null);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
+    queryClient.clear();
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        logout
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
