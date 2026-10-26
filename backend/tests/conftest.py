@@ -1,171 +1,227 @@
+import itertools
 import os
-from datetime import date, datetime, timedelta
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from typing import Any
 
 import pytest
-from faker import Faker
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Engine, create_engine, event, select
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 # Test-only values, set before the app modules read the settings.
 os.environ["SECRET_KEY"] = "test-secret-" + "x" * 52
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from bank_credit.app.database import Base, get_db
-
+from bank_credit.app.db import Base, get_db
+from bank_credit.app.deps import get_now
+from bank_credit.app.domain import workflow
+from bank_credit.app.domain.documents import with_cnpj_check_digits, with_cpf_check_digits
+from bank_credit.app.domain.enums import UserRole
+from bank_credit.app.domain.reference import ensure_reference_data
 from bank_credit.app.main import create_app
-from bank_credit.app.models import (
-    Client,
-    CreditRequest,
-    Employee,
-    Process,
-    Sector,
-    User,
-)
+from bank_credit.app.models import Client, CreditRequest, Employee, Sector, User
 from bank_credit.app.security import create_access_token, get_password_hash
 
-# Configuração do banco de dados de teste
-engine = create_engine(
-    "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+T0 = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+PASSWORD = "test_password"
+_PASSWORD_HASH = get_password_hash(PASSWORD)  # Argon2 is slow: hash once
+_seq = itertools.count(1)
 
 
-@pytest.fixture(scope="function")
-def db():
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+@dataclass
+class Clock:
+    now: datetime
 
 
-@pytest.fixture(scope="function")
-def test_app(db):
+@pytest.fixture
+def clock() -> Clock:
+    return Clock(T0)
+
+
+@pytest.fixture
+def engine() -> Iterator[Engine]:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+
+    @event.listens_for(engine, "connect")
+    def _foreign_keys(dbapi_connection: Any, _record: object) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    Base.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db(engine: Engine) -> Iterator[Session]:
+    with Session(engine, expire_on_commit=False) as session:
+        ensure_reference_data(session)
+        session.commit()
+        yield session
+
+
+@pytest.fixture
+def test_app(db: Session, clock: Clock) -> Iterator[TestClient]:
     app = create_app()
-
-    def override_get_db():
-        yield db
-
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_now] = lambda: clock.now
     with TestClient(app) as test_client:
         yield test_client
 
 
-@pytest.fixture(scope="function")
-def client(db, faker):
-    user = User(
-        full_name=faker.name(),
-        phone=faker.msisdn()[0:11],
-        email=faker.unique.email(),
-        hashed_password=get_password_hash("test_password"),
-        is_active=True,
-        is_superuser=False,
-        created_at=date.today(),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    client = Client(
-        user_id=user.id,
-        cnpj=faker.unique.cnpj(),
-        nome_fantasia=faker.company(),
-        razao_social=faker.company_suffix(),
-        cnae_principal="6201-5/01",
-        cnae_principal_desc="Desenvolvimento de programas de computador sob encomenda",
-        natureza_juridica="2062",
-        natureza_juridica_desc="Sociedade Empresária Limitada",
-        logradouro=faker.street_name(),
-        numero=faker.building_number(),
-        cep=faker.postcode().replace("-", ""),
-        bairro=faker.bairro(),
-        municipio=faker.city(),
-        uf=faker.estado_sigla(),
-    )
-    db.add(client)
-    db.commit()
-    db.refresh(client)
-    return client
+def valid_cnpj() -> str:
+    return with_cnpj_check_digits(f"{next(_seq):08d}0001")
 
 
-@pytest.fixture(scope="function")
-def bearer_token(client):
-    return create_access_token(client.user.email)
+def valid_cpf() -> str:
+    return with_cpf_check_digits(f"{100_000_000 + next(_seq)}")
 
 
-@pytest.fixture(scope="function")
-def authorized_user(test_app, bearer_token):
-    test_app.headers = {**test_app.headers, "Authorization": f"Bearer {bearer_token}"}
-    return test_app
+@pytest.fixture
+def client_payload() -> Callable[[], dict[str, Any]]:
+    """A valid body for POST /auth/register/client, new document and email on every call."""
+
+    def make() -> dict[str, Any]:
+        n = next(_seq)
+        return {
+            "cnpj": valid_cnpj(),
+            "trade_name": f"Trade {n}",
+            "legal_name": f"Legal {n} Ltda",
+            "cnae_primary": "6201-5/01",
+            "cnae_primary_desc": "Custom software development",
+            "legal_nature_code": "2062",
+            "legal_nature_desc": "Limited company",
+            "street": "Rua Exemplo",
+            "number": "100",
+            "postal_code": "01310100",
+            "district": "Centro",
+            "city": "Sao Paulo",
+            "state": "SP",
+            "user": {
+                "full_name": f"Customer {n}",
+                "phone": "11987654321",
+                "email": f"customer{n}@bank-demo.org",
+                "password": "a-long-enough-password",
+            },
+        }
+
+    return make
 
 
-@pytest.fixture(scope="function")
-def faker():
-    return Faker("pt_BR")
+@pytest.fixture
+def make_customer(db: Session) -> Callable[[], User]:
+    def make() -> User:
+        n = next(_seq)
+        user = User(
+            email=f"client{n}@bank-demo.org",
+            full_name=f"Client {n}",
+            phone="11987654321",
+            hashed_password=_PASSWORD_HASH,
+            role=UserRole.CUSTOMER,
+            created_at=T0,
+        )
+        user.client = Client(
+            cnpj=valid_cnpj(),
+            trade_name=f"Trade {n}",
+            legal_name=f"Legal {n} Ltda",
+            cnae_primary="6201-5/01",
+            cnae_primary_desc="Custom software development",
+            legal_nature_code="2062",
+            legal_nature_desc="Limited company",
+            street="Rua Exemplo",
+            number="100",
+            postal_code="01310100",
+            district="Centro",
+            city="Sao Paulo",
+            state="SP",
+        )
+        db.add(user)
+        db.commit()
+        return user
+
+    return make
 
 
-@pytest.fixture(scope="function")
-def employee(db):
-    user = User(
-        full_name="Funcionario Teste",
-        phone="11987654321",
-        email="funcionario@empresa.com.br",
-        hashed_password="hash",
-        is_active=True,
-        is_superuser=False,
-        created_at=datetime.now(),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    employee = Employee(
-        user_id=user.id,
-        matricula="EMP001",
-        cpf="12345678901",
-    )
-    db.add(employee)
-    db.commit()
-    db.refresh(employee)
-    return employee
+@pytest.fixture
+def make_employee(db: Session) -> Callable[..., User]:
+    def make(role: UserRole = UserRole.STAFF, sector: str | int | None = None) -> User:
+        n = next(_seq)
+        sector_id = (
+            db.scalar(select(Sector.id).where(Sector.code == sector))
+            if isinstance(sector, str)
+            else sector
+        )
+        user = User(
+            email=f"employee{n}@bank-demo.org",
+            full_name=f"Employee {n}",
+            phone="11987654321",
+            hashed_password=_PASSWORD_HASH,
+            role=role,
+            created_at=T0,
+        )
+        user.employee = Employee(employee_number=f"E{n:05d}", cpf=valid_cpf(), sector_id=sector_id)
+        db.add(user)
+        db.commit()
+        return user
+
+    return make
 
 
-@pytest.fixture(scope="function")
-def process(db):
-    """
-    Ensure at least one initial Process exists for tests that require it.
-    """
-    process = Process(name="Initial Process")
-    db.add(process)
-    db.commit()
-    db.refresh(process)
-    return process
+@pytest.fixture
+def customer(make_customer: Callable[[], User]) -> User:
+    return make_customer()
 
 
-@pytest.fixture(scope="function")
-def sector(db):
-    sector = Sector(name="Test Sector", limit=100000.0, sla_days=2, require_all=True)
-    db.add(sector)
-    db.commit()
-    db.refresh(sector)
-    return sector
+@pytest.fixture
+def other_customer(make_customer: Callable[[], User]) -> User:
+    return make_customer()
 
 
-@pytest.fixture(scope="function")
-def credit_request(db, client, process):
-    credit_request = CreditRequest(
-        client_id=client.id,
-        amount=50000.0,
-        status="PENDING",
-        created_at=datetime.now(),
-        deliver_date=datetime.now() + timedelta(days=7),
-        current_process_id=process.id,
-        purpose="Working capital",
-        term=30,
-    )
-    db.add(credit_request)
-    db.commit()
-    db.refresh(credit_request)
-    return credit_request
+@pytest.fixture
+def retail_staff(make_employee: Callable[..., User]) -> User:
+    return make_employee(UserRole.STAFF, "retail_center")
+
+
+@pytest.fixture
+def admin(make_employee: Callable[..., User]) -> User:
+    return make_employee(UserRole.ADMIN, None)
+
+
+@pytest.fixture
+def submit(db: Session) -> Callable[..., CreditRequest]:
+    def make(
+        customer: User,
+        amount: str = "100000.00",
+        at: datetime = T0,
+        purpose: str = "Working capital",
+    ) -> CreditRequest:
+        assert customer.client is not None
+        request = workflow.submit_request(
+            db,
+            customer.client,
+            customer,
+            at,
+            amount=Decimal(amount),
+            purpose=purpose,
+            term_days=90,
+            deliver_date=(at + timedelta(days=30)).date(),
+        )
+        db.commit()
+        return request
+
+    return make
+
+
+@pytest.fixture
+def auth() -> Callable[[User], dict[str, str]]:
+    def headers(user: User) -> dict[str, str]:
+        return {"Authorization": f"Bearer {create_access_token(user.email)}"}
+
+    return headers
