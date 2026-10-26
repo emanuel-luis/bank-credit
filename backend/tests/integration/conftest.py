@@ -82,3 +82,19 @@ def seeded_engine(migrated_engine: Engine) -> Engine:
         seed(db, "pg-test-password")
         db.commit()
     return migrated_engine
+
+
+@pytest.fixture
+def simulated_engine(seeded_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Engine:
+    """Seeded schema plus a fixed-seed synthetic history ending at helpers.AS_OF.
+
+    Password hashing is stubbed for the synthetic customers: Argon2 is slow and unrelated here.
+    """
+    from bank_credit.app.jobs import simulate as simulate_module
+
+    from .helpers import AS_OF
+
+    monkeypatch.setattr(simulate_module, "get_password_hash", lambda password: f"fake${password}")
+    with Session(seeded_engine, expire_on_commit=False) as db:
+        simulate_module.simulate(db, seed=1, as_of=AS_OF, days=90, clients=40)
+    return seeded_engine

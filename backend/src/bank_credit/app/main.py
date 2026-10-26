@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from bank_credit.app.config import get_settings
 from bank_credit.app.db import get_db
 from bank_credit.app.errors import register_error_handlers
+from bank_credit.app.routers.analytics import router as analytics_router
 from bank_credit.app.routers.auth import router as auth_router
 from bank_credit.app.routers.credit_request import router as credit_router
 from bank_credit.app.routers.credit_request import workflow_router
@@ -34,6 +35,7 @@ def create_app(cors_origins: list[str] | None = None) -> FastAPI:
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(credit_router, prefix="/requests", tags=["credit_requests"])
     app.include_router(workflow_router, tags=["workflow"])
+    app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
     app.include_router(notification_router, prefix="/notifications", tags=["notifications"])
 
     @app.get("/")

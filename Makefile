@@ -3,13 +3,17 @@
 #   docker compose down -v                   (make down)
 #   docker compose logs -f                   (make logs)
 #   docker compose run --rm api bank-credit sla-check   (make sla-check)
+#   mkdir -p data/exports && docker compose run --rm --user "$(id -u):$(id -g)" -v "$PWD/data:/app/data" \
+#     api bank-credit export --dataset request_events --out data/exports   (make export; AS_OF, FORMAT)
 #   python3 scripts/smoke.py                  (make smoke; needs the stack up)
 #   cd backend && uv sync && uv run pytest   (make install, make test)
 
 .DEFAULT_GOAL := help
-.PHONY: help env install lint test test-integration up demo down logs sla-check smoke
+.PHONY: help env install lint test test-integration up demo down logs sla-check export smoke
 
 COMPOSE := docker compose
+DATASET ?= request_events
+FORMAT ?= csv
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -60,6 +64,12 @@ logs: ## Follow the logs of all services
 
 sla-check: ## Run the SLA check job once in the api image
 	$(COMPOSE) run --rm api bank-credit sla-check
+
+export: ## Export DATASET (request_events|stage_intervals|sla_breach_weekly) to ./data/exports; also AS_OF, FORMAT
+	@mkdir -p data/exports
+	$(COMPOSE) run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR)/data:/app/data" api \
+	  bank-credit export --dataset $(DATASET) --format $(FORMAT) --out data/exports \
+	  $(if $(AS_OF),--as-of "$(AS_OF)")
 
 smoke: ## Register a customer and approve a request through all stages (stack must be up)
 	@set -a; [ ! -f .env ] || . ./.env; set +a; python3 scripts/smoke.py

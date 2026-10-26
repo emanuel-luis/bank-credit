@@ -1146,6 +1146,67 @@
         "title": "SectorRef",
         "type": "object"
       },
+      "SlaBreachRateResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SlaBreachRateRow"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "source_view": {
+            "title": "Source View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "generated_at",
+          "source_view"
+        ],
+        "title": "SlaBreachRateResponse",
+        "type": "object"
+      },
+      "SlaBreachRateRow": {
+        "properties": {
+          "breach_rate": {
+            "title": "Breach Rate",
+            "type": "string"
+          },
+          "breached": {
+            "title": "Breached",
+            "type": "integer"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "integer"
+          },
+          "sector_code": {
+            "title": "Sector Code",
+            "type": "string"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sector_code",
+          "week_start",
+          "closed",
+          "breached",
+          "breach_rate"
+        ],
+        "title": "SlaBreachRateRow",
+        "type": "object"
+      },
       "StageRef": {
         "properties": {
           "code": {
@@ -1198,6 +1259,153 @@
           "routes"
         ],
         "title": "StageWorkflow",
+        "type": "object"
+      },
+      "ThroughputResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ThroughputRow"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "source_view": {
+            "title": "Source View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "generated_at",
+          "source_view"
+        ],
+        "title": "ThroughputResponse",
+        "type": "object"
+      },
+      "ThroughputRow": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "integer"
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "entered": {
+            "title": "Entered",
+            "type": "integer"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "integer"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "returned": {
+            "title": "Returned",
+            "type": "integer"
+          },
+          "sector_code": {
+            "title": "Sector Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sector_code",
+          "day",
+          "entered",
+          "approved",
+          "returned",
+          "rejected",
+          "cancelled",
+          "expired"
+        ],
+        "title": "ThroughputRow",
+        "type": "object"
+      },
+      "TimeInStageResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TimeInStageRow"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "source_view": {
+            "title": "Source View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "generated_at",
+          "source_view"
+        ],
+        "title": "TimeInStageResponse",
+        "type": "object"
+      },
+      "TimeInStageRow": {
+        "properties": {
+          "avg_h": {
+            "title": "Avg H",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "p50_h": {
+            "title": "P50 H",
+            "type": "string"
+          },
+          "p90_h": {
+            "title": "P90 H",
+            "type": "string"
+          },
+          "sector_code": {
+            "title": "Sector Code",
+            "type": "string"
+          },
+          "stage_code": {
+            "title": "Stage Code",
+            "type": "string"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_code",
+          "sector_code",
+          "week_start",
+          "n",
+          "avg_h",
+          "p50_h",
+          "p90_h"
+        ],
+        "title": "TimeInStageRow",
         "type": "object"
       },
       "Token": {
@@ -1445,6 +1653,291 @@
           }
         },
         "summary": "Read Root"
+      }
+    },
+    "/analytics/sla-breach-rate": {
+      "get": {
+        "description": "Weekly share of stage intervals that missed their SLA (default: last 12 weeks).",
+        "operationId": "sla_breach_rate_analytics_sla_breach_rate_get",
+        "parameters": [
+          {
+            "description": "Default: to minus the window",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: to minus the window",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Default: today (UTC)",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: today (UTC)",
+              "title": "To"
+            }
+          },
+          {
+            "description": "Sector code; managers get their own",
+            "in": "query",
+            "name": "sector",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sector code; managers get their own",
+              "title": "Sector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaBreachRateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Sla Breach Rate",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/analytics/throughput": {
+      "get": {
+        "description": "Daily entries and exits per sector (default: last 90 days).",
+        "operationId": "throughput_analytics_throughput_get",
+        "parameters": [
+          {
+            "description": "Default: to minus the window",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: to minus the window",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Default: today (UTC)",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: today (UTC)",
+              "title": "To"
+            }
+          },
+          {
+            "description": "Sector code; managers get their own",
+            "in": "query",
+            "name": "sector",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sector code; managers get their own",
+              "title": "Sector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThroughputResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Throughput",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/analytics/time-in-stage": {
+      "get": {
+        "description": "Weekly average, median and 90th percentile hours per stage (default: last 12 weeks).",
+        "operationId": "time_in_stage_analytics_time_in_stage_get",
+        "parameters": [
+          {
+            "description": "Default: to minus the window",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: to minus the window",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Default: today (UTC)",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: today (UTC)",
+              "title": "To"
+            }
+          },
+          {
+            "description": "Sector code; managers get their own",
+            "in": "query",
+            "name": "sector",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sector code; managers get their own",
+              "title": "Sector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeInStageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Time In Stage",
+        "tags": [
+          "analytics"
+        ]
       }
     },
     "/auth/me": {

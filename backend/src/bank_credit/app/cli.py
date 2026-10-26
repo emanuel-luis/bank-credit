@@ -11,7 +11,9 @@ from pathlib import Path
 import uvicorn
 
 from bank_credit.app.config import get_database_settings, get_settings
+from bank_credit.app.contracts.exports import CONTRACTS
 from bank_credit.app.db import get_sessionmaker
+from bank_credit.app.jobs.export import FORMATS, ExportError, run_export
 from bank_credit.app.jobs.runs import job_run
 from bank_credit.app.jobs.seed import seed
 from bank_credit.app.jobs.simulate import simulate
@@ -66,6 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
     sla = commands.add_parser("sla-check", help="write the SLA breaches and expiries that came due")
     sla.add_argument("--now", type=_iso, help="ISO timestamp to check against (default: now)")
 
+    exp = commands.add_parser("export", help="publish a checked dataset partition (csv or parquet)")
+    exp.add_argument(
+        "--dataset",
+        required=True,
+        choices=sorted(CONTRACTS),
+        help="dataset to export",
+    )
+    exp.add_argument("--as-of", type=_iso, help="ISO timestamp the data is as of (default: now)")
+    exp.add_argument("--format", choices=FORMATS, default="csv", help="file format (default: csv)")
+    exp.add_argument(
+        "--out", type=Path, default=Path("data/exports"), help="output root (default: %(default)s)"
+    )
+
     spec = commands.add_parser("openapi", help="print the OpenAPI JSON (needs no environment)")
     spec.add_argument("--out", type=Path, help="write to this file instead of stdout")
     return parser
@@ -114,5 +129,12 @@ def main(argv: Sequence[str] | None = None) -> None:
                 clients=args.clients,
                 reset=args.reset,
             )
+        elif args.command == "export":
+            as_of = args.as_of or datetime.now(UTC)
+            try:
+                result = run_export(db, args.dataset, as_of, args.out, args.format)
+            except ExportError as exc:
+                raise SystemExit(f"export failed: {exc}") from exc
+            print(f"{result.partition} rows={result.row_count} sha256={result.sha256}")
         else:
             sla_check(db, args.now)

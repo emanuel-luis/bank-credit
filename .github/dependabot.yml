@@ -7,6 +7,8 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        # Majors arrive as their own PRs so breaking upgrades get a separate review.
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: uv
     directory: /backend
@@ -15,6 +17,8 @@ updates:
     groups:
       python:
         patterns: ["*"]
+        # Majors arrive as their own PRs so breaking upgrades get a separate review.
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -23,6 +27,8 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+        # Majors arrive as their own PRs so breaking upgrades get a separate review.
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker
     directories: [/backend, /frontend]
@@ -31,3 +37,5 @@ updates:
     groups:
       docker:
         patterns: ["*"]
+        # Majors arrive as their own PRs so breaking upgrades get a separate review.
+        update-types: ["minor", "patch"]
