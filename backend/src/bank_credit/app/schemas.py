@@ -1,12 +1,27 @@
-# app/schemas.py
+"""API schemas. Inputs forbid unknown fields; money is Decimal and serializes as a string."""
 
-from __future__ import annotations
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated
 
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from bank_credit.app.domain.documents import Cnpj
+from bank_credit.app.domain.enums import Action, EventType, RequestStatus, UserRole
 
-# --- Authentication models ---
+Money = Annotated[Decimal, Field(max_digits=14, decimal_places=2, gt=0)]
+Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class Input(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class Output(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Authentication and registration ---
 
 
 class Token(BaseModel):
@@ -14,204 +29,183 @@ class Token(BaseModel):
     token_type: str
 
 
-# --- Client models ---
-
-
-class GroupBase(BaseModel):
-    name: str
-
-
-class Group(GroupBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-class SectorBase(BaseModel):
-    name: str
-    limit: float
-    sla_days: int
-    require_all: bool
-    manager_id: int | None = None
-
-
-class Sector(SectorBase):
-    id: int
-    groups: list[Group] | None = []
-
-    class Config:
-        from_attributes = True
-
-
-class UserBase(BaseModel):
+class UserCreate(Input):
+    # Public registration input: role, is_superuser, groups and the like are rejected.
     email: EmailStr
-    full_name: str
-    phone: str
+    full_name: Annotated[Text, Field(max_length=200)]
+    phone: Annotated[Text, Field(max_length=20)]
+    password: Annotated[str, Field(min_length=8, max_length=128)]
 
 
-class UserCreate(UserBase):
-    # Public registration input: unknown fields (role, is_superuser, groups) are rejected.
-    model_config = ConfigDict(extra="forbid")
-
-    password: str
-
-
-class ClientBase(BaseModel):
-    cnpj: str
-    nome_fantasia: str
-    razao_social: str
-    cnae_principal: str
-    cnae_principal_desc: str
-    cnae_secundario: str | None = None
-    cnae_secundario_desc: str | None = None
-    natureza_juridica: str
-    natureza_juridica_desc: str
-    logradouro: str
-    numero: str
-    complemento: str | None = None
-    cep: str
-    bairro: str
-    municipio: str
-    uf: str
-
-
-class ClientCreate(ClientBase):
+class ClientCreate(Input):
+    cnpj: Cnpj
+    trade_name: Annotated[Text, Field(max_length=200)]
+    legal_name: Annotated[Text, Field(max_length=200)]
+    cnae_primary: Annotated[Text, Field(max_length=16)]
+    cnae_primary_desc: Annotated[Text, Field(max_length=255)]
+    cnae_secondary: Annotated[str | None, Field(max_length=16)] = None
+    cnae_secondary_desc: Annotated[str | None, Field(max_length=255)] = None
+    legal_nature_code: Annotated[Text, Field(max_length=8)]
+    legal_nature_desc: Annotated[Text, Field(max_length=255)]
+    street: Annotated[Text, Field(max_length=200)]
+    number: Annotated[Text, Field(max_length=20)]
+    complement: Annotated[str | None, Field(max_length=100)] = None
+    postal_code: Annotated[str, Field(pattern=r"^[0-9]{8}$")]
+    district: Annotated[Text, Field(max_length=100)]
+    city: Annotated[Text, Field(max_length=100)]
+    state: Annotated[str, Field(pattern=r"^[A-Z]{2}$")]
     user: UserCreate
 
 
-class Client(ClientBase):
+class UserRead(Output):
     id: int
-    user_id: int
-
-    class Config:
-        from_attributes = True
-
-
-class ClientUser(ClientBase):
-    user: User
-
-    class Config:
-        from_attributes = True
-
-
-class EmployeeBase(BaseModel):
-    matricula: str
-    cpf: str
-
-
-class Employee(EmployeeBase):
-    id: int
-    user_id: int
-
-    class Config:
-        from_attributes = True
-
-
-class EmployeeUser(EmployeeBase):
-    id: int
-    user: User
-
-    class Config:
-        from_attributes = True
-
-
-# --- Notification Schemas ---
-
-
-class NotificationCount(BaseModel):
-    count: int
-
-
-class NotificationBase(BaseModel):
-    subject: str
-    message: str
-
-
-class NotificationCreate(NotificationBase):
-    pass
-
-
-class NotificationRead(NotificationBase):
-    id: int
-    client_id: int
-    read: bool
+    email: str
+    full_name: str
+    phone: str
+    role: UserRole
+    is_active: bool
     created_at: datetime
+    last_login_at: datetime | None
 
 
-# --- Credit request models ---
-
-
-class CreditRequestBase(BaseModel):
-    amount: float = Field(..., gt=0, description="Amount must be greater than 0")
-    deliver_date: datetime
-    term: int
-    purpose: str
-    checklist: list[bool] | None = []
-
-
-class CreditRequestCreate(CreditRequestBase):
-    @field_validator("deliver_date")
-    @classmethod
-    def deliver_date_not_in_past(cls, value: datetime) -> datetime:
-        now = datetime.now(value.tzinfo)
-        if value < now:
-            raise ValueError("deliver_date must not be in the past")
-        return value
-
-
-class CreditRequest(CreditRequestBase):
+class ClientRead(Output):
     id: int
-    client: ClientUser
-    client_id: int
-    status: str
-    created_at: datetime
-    updated_at: datetime
-    current_process_id: int | None = None
+    cnpj: str
+    trade_name: str
+    legal_name: str
+    cnae_primary: str
+    cnae_primary_desc: str
+    cnae_secondary: str | None
+    cnae_secondary_desc: str | None
+    legal_nature_code: str
+    legal_nature_desc: str
+    street: str
+    number: str
+    complement: str | None
+    postal_code: str
+    district: str
+    city: str
+    state: str
 
 
-# --- Request History Schemas ---
+class ClientWithUser(ClientRead):
+    user: UserRead
 
 
-class RequestHistoryBase(BaseModel):
-    status: str
-    timestamp: datetime
-    reason: str | None = None  # Novo campo para motivo
-
-
-class RequestHistory(RequestHistoryBase):
-    id: int
-    request_id: int
-
-
-# --- Process Schemas ---
-
-
-class ProcessBase(BaseModel):
+class SectorRef(Output):
+    code: str
     name: str
 
 
-class Process(ProcessBase):
-    id: int
-    next_process_id: int | None = None
+class StageRef(Output):
+    code: str
+    name: str
+    position: int
 
 
-class User(UserBase):
+class EmployeeRead(Output):
     id: int
-    is_active: bool
-    is_superuser: bool
-    is_client: bool = False
-    is_employee: bool = False
+    employee_number: str
+    sector: SectorRef | None
+
+
+class Me(UserRead):
+    client: ClientRead | None
+    employee: EmployeeRead | None
+
+
+# --- Notifications ---
+
+
+class NotificationRead(Output):
+    id: int
+    client_id: int
+    request_id: int | None
+    subject: str
+    message: str
+    read_at: datetime | None
     created_at: datetime
-    last_login: datetime | None = None
-    groups: list[Group] | None = []
-    role: str | None = None
-    client: Client | None = None
-    employee: Employee | None = None
-
-    class Config:
-        from_attributes = True
 
 
-# Resolve forward references
-CreditRequest.model_rebuild()
+# --- Credit requests ---
+
+
+class CreditRequestCreate(Input):
+    amount: Money
+    purpose: Annotated[Text, Field(max_length=500)]
+    term_days: Annotated[int, Field(gt=0)]
+    deliver_date: date
+
+
+class TransitionIn(Input):
+    action: Action
+    reason: str | None = None
+    expected_seq: int
+
+
+class ClientSummary(Output):
+    id: int
+    cnpj: str
+    trade_name: str
+    legal_name: str
+
+
+class RequestSummary(Output):
+    id: int
+    amount: Decimal
+    purpose: str
+    term_days: int
+    deliver_date: date
+    status: RequestStatus
+    stage: StageRef
+    sector: SectorRef
+    submitted_at: datetime
+    stage_entered_at: datetime
+    sla_due_at: datetime | None
+    is_overdue: bool
+    closed_at: datetime | None
+    client: ClientSummary
+
+
+class RequestDetail(RequestSummary):
+    estimated_completion_at: datetime | None
+    last_seq: int
+    allowed_actions: list[Action]
+
+
+class RequestPage(BaseModel):
+    items: list[RequestSummary]
+    total: int
+
+
+class ActorRef(Output):
+    id: int
+    full_name: str
+    role: UserRole
+
+
+class HistoryItem(Output):
+    seq: int
+    event_type: EventType
+    from_status: RequestStatus | None
+    to_status: RequestStatus
+    stage: StageRef
+    sector: SectorRef
+    actor: ActorRef | None
+    reason: str | None
+    occurred_at: datetime
+
+
+class RouteRead(BaseModel):
+    sector: SectorRef
+    min_amount: Decimal
+    max_amount: Decimal | None
+    sla_hours: int
+
+
+class StageWorkflow(StageRef):
+    routes: list[RouteRead]
+
+
+class WorkflowRead(BaseModel):
+    stages: list[StageWorkflow]
