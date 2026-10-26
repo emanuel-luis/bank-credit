@@ -82,6 +82,11 @@ class InvalidAmount(WorkflowError):
     code = "invalid_amount"
 
 
+class InvalidDeliverDate(WorkflowError):
+    status_code = 422
+    code = "invalid_deliver_date"
+
+
 # --- The transition table ---
 
 
@@ -329,6 +334,8 @@ def submit_request(
         raise Forbidden("only the customer who owns the client can submit a request")
     if amount <= 0:
         raise InvalidAmount("amount must be greater than 0")
+    if deliver_date < now.date():
+        raise InvalidDeliverDate("deliver_date must not be in the past")
     first_stage = _stages_after(db, None)[0]
     route = resolve_route(db, first_stage, amount)
     request = CreditRequest(
@@ -431,14 +438,15 @@ def transition(
         raise Forbidden(f"this user cannot {action.value} this request")
     if expected_seq is not None and expected_seq != request.last_seq:
         raise StaleSequence(f"expected seq {expected_seq}, request is at {request.last_seq}")
-    if any(e.event_type is EventType.EXPIRED for e in apply_due_system_events(db, request, now)):
-        raise RequestExpired("the request expired")
     if request.status is RequestStatus.EXPIRED:
         raise RequestExpired("the request expired")
     if request.status not in rule.from_statuses:
         raise InvalidTransition(f"cannot {action.value} a request in status {request.status}")
     if rule.needs_reason and not (reason and reason.strip()):
         raise ReasonRequired(f"a reason is required to {action.value}")
+    # Validation is done before this point so a rejected call writes nothing.
+    if any(e.event_type is EventType.EXPIRED for e in apply_due_system_events(db, request, now)):
+        raise RequestExpired("the request expired")
 
     stage = request.current_stage
     sector_id = request.current_sector_id
