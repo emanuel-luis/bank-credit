@@ -1,223 +1,53 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FilePlus, ArrowRight, FileText, ChevronRight, FileCheck, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import ApplicationCard from '../../components/loan/ApplicationCard';
-import { useMockApplication } from '../../context/mockdata';
-import type { Application, ApiApplication } from '../../types';
+import Stat from '../../components/ui/Stat';
+import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
+import RequestTable from '../../components/loan/RequestTable';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRequests } from '../../hooks/useRequests';
+import { errorMessage } from '../../lib/errors';
+
+// limit=1 is enough to read `total` for a count.
+const mine = { scope: 'mine', limit: 1 } as const;
 
 export default function CustomerDashboard() {
-  const navigate = useNavigate();
-  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pending, setPending] = useState(0);
-  const [approved, setApproved] = useState(0);
-  const { mockData } = useMockApplication();
-
-  useEffect(() => {
-    const fetchApplications = async () => {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://127.0.0.1:8000/requests/', {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) return;
-      const data: ApiApplication[] = await response.json();
-      setTotal(data.length);
-      setPending(data.filter((a) => a.status === 'PENDING').length);
-      setApproved(data.filter((a) => a.status === 'APPROVED').length);
-
-      // Enriquecer com dados mockados do contexto
-      const enriched = data.map((app) => ({
-        ...app,
-        ...(mockData[app.id] || {})
-      }));
-
-      // Ordena por data de atualização (updated_at) ou data de criação (created_at)
-      const sorted = enriched
-        .sort((a, b) => {
-          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
-          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
-          return dateB - dateA;
-        })
-        .slice(0, 2);
-
-      setRecentApplications(sorted);
-    };
-    fetchApplications();
-  }, [mockData]);
+  const { user } = useAuth();
+  const all = useRequests(mine);
+  const inReview = useRequests({ ...mine, status: 'IN_REVIEW' });
+  const returned = useRequests({ ...mine, status: 'RETURNED' });
+  const approved = useRequests({ ...mine, status: 'APPROVED' });
+  const recent = useRequests({ scope: 'mine', limit: 5 });
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center sm:text-left sm:flex sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Bem-vindo ao seu painel</h2>
-                <p className="mt-1 text-gray-500 max-w-2xl">
-                  Inicie uma nova solicitação de crédito ou acompanhe suas solicitações existentes.
-                </p>
-              </div>
-              <div className="mt-5 sm:mt-0">
-                <Button
-                  onClick={() => navigate('/customer/applications/new')}
-                  rightIcon={<FilePlus className="ml-2 h-5 w-5" />}
-                >
-                  Nova Solicitação
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <motion.div
-          className="lg:col-span-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Solicitações Recentes</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/customer/applications')}
-                rightIcon={<ArrowRight className="ml-1 h-4 w-4" />}
-              >
-                Ver todas
-              </Button>
-            </CardHeader>
-
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {recentApplications.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    {...application}
-                    companyName={(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
-                    submittedAt={application.created_at}
-                    onViewDetails={(id) => navigate(`/customer/applications/${id}`)}
-                  />
-                ))}
-                {recentApplications.length === 0 && (
-                  <div className="md:col-span-2 py-10 text-center">
-                    <FileText className="mx-auto h-10 w-10 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900">Nenhuma solicitação</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Você ainda não enviou nenhuma solicitação de crédito.
-                    </p>
-                    <div className="mt-6">
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate('/customer/applications/new')}
-                      >
-                        Iniciar nova solicitação
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status das Solicitações</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-blue-100 p-2">
-                        <FileText className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Total de Solicitações</p>
-                        <p className="text-xl font-bold">{total}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-yellow-100 p-2">
-                        <AlertCircle className="h-5 w-5 text-yellow-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Pendentes</p>
-                        <p className="text-xl font-bold">{pending}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-green-100 p-2">
-                        <FileCheck className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Aprovadas</p>
-                        <p className="text-xl font-bold">{approved}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Atalhos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <nav className="space-y-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between"
-                    onClick={() => navigate('/customer/applications/new')}
-                  >
-                    <span className="flex items-center">
-                      <FilePlus className="mr-3 h-5 w-5 text-gray-400" />
-                      Nova Solicitação
-                    </span>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between"
-                    onClick={() => navigate('/customer/applications')}
-                  >
-                    <span className="flex items-center">
-                      <FileText className="mr-3 h-5 w-5 text-gray-400" />
-                      Todas as Solicitações
-                    </span>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </Button>
-                </nav>
-              </CardContent>
-            </Card>
-          </div>
-        </motion.div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Olá, {user?.full_name.split(' ')[0]}</h1>
+          <p className="text-sm text-gray-500">{user?.client?.trade_name}</p>
+        </div>
+        <Link to="/customer/applications/new">
+          <Button leftIcon={<Plus className="h-4 w-4" />}>Nova solicitação</Button>
+        </Link>
       </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat label="Total" value={all.data?.total} />
+        <Stat label="Em análise" value={inReview.data?.total} />
+        <Stat label="Devolvidas" value={returned.data?.total} />
+        <Stat label="Aprovadas" value={approved.data?.total} />
+      </div>
+
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>Solicitações recentes</CardTitle>
+          <Link to="/customer/applications" className="text-sm text-primary-600 hover:underline">
+            Ver todas
+          </Link>
+        </CardHeader>
+        {recent.isError && <p className="p-6 text-sm text-red-600">{errorMessage(recent.error)}</p>}
+        {recent.data && <RequestTable items={recent.data.items} basePath="/customer/applications" />}
+      </Card>
     </div>
   );
 }
