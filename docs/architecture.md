@@ -22,14 +22,16 @@ to the API, so browser and API share an origin and CORS stays closed. API and we
 
 Every change to a request goes through `app/domain/workflow.py`:
 
-1. Lock the request row (`SELECT ... FOR UPDATE`) and check `expected_seq` against `last_seq`.
-2. Apply due system events first (SLA_BREACHED, then EXPIRED, stamped at their deadlines). An
-   expired request refuses the action with 409 `request_expired`.
-3. Check the transition table: the action must be allowed from the current status, by this actor
-   (customer owner, staff or manager of the current sector, admin).
+1. Lock the request row (`SELECT ... FOR UPDATE`).
+2. Validate before writing anything: the actor must be a party to the action (customer owner,
+   staff or manager of the current sector, admin), `expected_seq` must equal `last_seq`, the
+   action must be allowed from the current status, and returns and rejections need a reason. A
+   rejected call writes nothing.
+3. Apply due system events (SLA_BREACHED, then EXPIRED, stamped at their deadlines). If the
+   request expired, the action is refused with 409 `request_expired`; the EXPIRED event is kept.
 4. Insert the event with `seq = last_seq + 1` and update the projection columns on
-   `credit_requests` (status, stage, sector, `sla_due_at`, `expires_at`, `closed_at`) in the same
-   transaction.
+   `credit_requests` (status, stage, sector, `sla_due_at`, `closed_at`) in the same transaction.
+   `expires_at` is set once, at submission.
 
 `unique(request_id, seq)` turns any race the lock misses into a conflict. The projection is a
 cache of the log: `workflow.replay(events)` rebuilds it, and the tests compare both for every
