@@ -21,6 +21,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analytics/sla-breach-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sla Breach Rate
+         * @description Weekly share of stage intervals that missed their SLA (default: last 12 weeks).
+         */
+        get: operations["sla_breach_rate_analytics_sla_breach_rate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/throughput": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Throughput
+         * @description Daily entries and exits per sector (default: last 90 days).
+         */
+        get: operations["throughput_analytics_throughput_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/time-in-stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Time In Stage
+         * @description Weekly average, median and 90th percentile hours per stage (default: last 12 weeks).
+         */
+        get: operations["time_in_stage_analytics_time_in_stage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me": {
         parameters: {
             query?: never;
@@ -632,6 +692,34 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** SlaBreachRateResponse */
+        SlaBreachRateResponse: {
+            /** Data */
+            data: components["schemas"]["SlaBreachRateRow"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Source View */
+            source_view: string;
+        };
+        /** SlaBreachRateRow */
+        SlaBreachRateRow: {
+            /** Breach Rate */
+            breach_rate: string;
+            /** Breached */
+            breached: number;
+            /** Closed */
+            closed: number;
+            /** Sector Code */
+            sector_code: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+        };
         /** StageRef */
         StageRef: {
             /** Code */
@@ -651,6 +739,72 @@ export interface components {
             position: number;
             /** Routes */
             routes: components["schemas"]["RouteRead"][];
+        };
+        /** ThroughputResponse */
+        ThroughputResponse: {
+            /** Data */
+            data: components["schemas"]["ThroughputRow"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Source View */
+            source_view: string;
+        };
+        /** ThroughputRow */
+        ThroughputRow: {
+            /** Approved */
+            approved: number;
+            /** Cancelled */
+            cancelled: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Entered */
+            entered: number;
+            /** Expired */
+            expired: number;
+            /** Rejected */
+            rejected: number;
+            /** Returned */
+            returned: number;
+            /** Sector Code */
+            sector_code: string;
+        };
+        /** TimeInStageResponse */
+        TimeInStageResponse: {
+            /** Data */
+            data: components["schemas"]["TimeInStageRow"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Source View */
+            source_view: string;
+        };
+        /** TimeInStageRow */
+        TimeInStageRow: {
+            /** Avg H */
+            avg_h: string;
+            /** N */
+            n: number;
+            /** P50 H */
+            p50_h: string;
+            /** P90 H */
+            p90_h: string;
+            /** Sector Code */
+            sector_code: string;
+            /** Stage Code */
+            stage_code: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
         };
         /** Token */
         Token: {
@@ -752,6 +906,114 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    sla_breach_rate_analytics_sla_breach_rate_get: {
+        parameters: {
+            query?: {
+                /** @description Default: to minus the window */
+                from?: string | null;
+                /** @description Default: today (UTC) */
+                to?: string | null;
+                /** @description Sector code; managers get their own */
+                sector?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaBreachRateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    throughput_analytics_throughput_get: {
+        parameters: {
+            query?: {
+                /** @description Default: to minus the window */
+                from?: string | null;
+                /** @description Default: today (UTC) */
+                to?: string | null;
+                /** @description Sector code; managers get their own */
+                sector?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThroughputResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    time_in_stage_analytics_time_in_stage_get: {
+        parameters: {
+            query?: {
+                /** @description Default: to minus the window */
+                from?: string | null;
+                /** @description Default: today (UTC) */
+                to?: string | null;
+                /** @description Sector code; managers get their own */
+                sector?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeInStageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
