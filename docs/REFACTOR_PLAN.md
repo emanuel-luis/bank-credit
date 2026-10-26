@@ -307,6 +307,17 @@ WHERE e.to_status = 'IN_REVIEW';
 Breach rate and time in stage are bucketed by exit week, when the SLA outcome is known;
 percentiles cannot be summed across weeks.
 
+Implemented (phase 5a), where it differs from the sketch above: the interval view names the
+stage position `stage_position`, `entry_seq` is the entry event's `seq`, and `to_status =
+IN_REVIEW` is the only filter after the `SLA_BREACHED` events are left out. `v_throughput_daily`
+counts per interval, so each exit is attributed to the sector that held the request (decision 54).
+The migration (0004) reads the files through `bank_credit.app.views` and `alembic/env.py` skips
+reflected `v_*` tables in autogenerate. The API reads through an injectable `get_reader`, so unit
+tests cover auth and parameters and integration tests cover the real rows. Decisions 51 to 57
+record the number types, windows, plain (not materialized) views, export layout and as-of rules.
+`make export DATASET=... [AS_OF=...] [FORMAT=...]` runs the job in the api image against a
+bind-mounted `./data`; the default `--as-of` is now.
+
 - Endpoints: `GET /analytics/{sla-breach-rate|time-in-stage|throughput}?from=&to=&sector=`
   returning `{data, generated_at, source_view}`; manager (own sector) and admin only. The manager
   and admin Reports pages get three Chart.js charts.
