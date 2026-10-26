@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useMockApplication } from '../../context/mockdata';
 import { getCentral } from './NewApplication';
+import type { Application, ApiApplication } from '../../types';
 
 // Função utilitária para formatar datas
 function formatDate(dateStr?: string) {
@@ -36,7 +37,7 @@ export default function CustomerApplications() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const { mockData } = useMockApplication();
 
@@ -55,13 +56,13 @@ export default function CustomerApplications() {
         const data = await response.json();
 
         // Enriquecer com dados mockados do contexto
-        const enriched = data.map((app: any) => ({
+        const enriched = (data as ApiApplication[]).map((app) => ({
           ...app,
           ...(mockData[app.id] || {})
         }));
 
         setApplications(enriched);
-      } catch (e) {
+      } catch {
         setApplications([]);
       } finally {
         setLoading(false);

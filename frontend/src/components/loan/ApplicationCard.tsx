@@ -10,6 +10,7 @@ export interface ApplicationCardProps {
   title?: string;
   status: ApplicationStatus | string;
   amount: number;
+  purpose?: string;
   department?: string;
   companyName?: string;
   submittedAt?: Date | string;

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import ApplicationStatusBadge from '../../components/loan/ApplicationStatusBadge';
 import { useMockApplication } from '../../context/mockdata';
 import { getCentral } from './NewApplication';
+import type { Application, StoredForm } from '../../types';
 
 // Função para formatar moeda
 const formatCurrency = (value: number) => {
@@ -27,9 +28,9 @@ const formatCurrency = (value: number) => {
 export default function CustomerApplicationDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [application, setApplication] = useState<any>(null);
+  const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<any>(null);
+  const [formData, setFormData] = useState<StoredForm | null>(null);
   const validStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
   const { getMockData } = useMockApplication();
 
@@ -52,7 +53,7 @@ export default function CustomerApplicationDetails() {
         // Busca os dados mockados do contexto
         const mock = getMockData(Number(id));
         setFormData(mock || null);
-      } catch (e) {
+      } catch {
         setApplication(null);
         setFormData(null);
       } finally {
@@ -73,11 +74,6 @@ export default function CustomerApplicationDetails() {
   const safeStatus = validStatuses.includes(application.status) ? application.status : 'PENDING';
 
   // Usa os dados da API, e se não vier, usa do formulário mockado salvo no contexto
-  const companyName = (application.client?.nome_fantasia + application.client?.razao_social) || formData?.companyName || '-';
-  const cnpj = application.client?.cnpj || formData?.cnpj || '-';
-  const contactName = application.client?.user?.full_name || formData?.contactName || '-';
-  const contactEmail = application.client?.user?.email || formData?.contactEmail || '-';
-  const contactPhone = application.client?.user?.phone || formData?.contactPhone || '-';
   const term = application.term || formData?.term || '-';
   const department = getCentral(application.amount) || formData?.stage || application.department || '-';
 
@@ -176,7 +172,7 @@ export default function CustomerApplicationDetails() {
                   <ul className="divide-y divide-gray-200">
                     {/* Mostra documentos enviados do mockData se existirem */}
                     {formData?.documents && formData.documents.length > 0 ? (
-                      formData.documents.map((doc: any, idx: number) => (
+                      formData.documents.map((doc, idx) => (
                         <li key={idx}>
                           <div className="px-4 py-4 sm:px-6 flex items-center justify-between">
                             <div className="flex items-center">
@@ -192,7 +188,7 @@ export default function CustomerApplicationDetails() {
                     ) : (
                       // Se não houver documentos mockados, mostra checklist da API ou mensagem padrão
                       (application.checklist && application.checklist.length > 0) ? (
-                        application.checklist.map((doc: any, idx: number) => (
+                        application.checklist.map((doc, idx) => (
                           <li key={idx}>
                             <div className="px-4 py-4 sm:px-6 flex items-center justify-between">
                               <div className="flex items-center">

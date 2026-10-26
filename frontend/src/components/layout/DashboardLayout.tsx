@@ -11,7 +11,6 @@ import {
   LogOut, 
   Menu, 
   X, 
-  ChevronDown, 
   Building2
 } from 'lucide-react';
 import { useAuth, UserRole } from '../../contexts/AuthContext';

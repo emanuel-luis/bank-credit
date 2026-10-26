@@ -38,7 +38,7 @@ export default function Login() {
       } else if (user.role === 'admin') {
         navigate('/admin');
       }
-    } catch (err) {
+    } catch {
       setError('Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);

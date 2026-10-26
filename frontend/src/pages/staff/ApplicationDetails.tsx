@@ -5,6 +5,7 @@ import ApplicationStatusBadge from '../../components/loan/ApplicationStatusBadge
 import Button from '../../components/ui/Button';
 import { useMockApplication } from '../../context/mockdata';
 import { getCentral } from '../customer/NewApplication';
+import type { Application } from '../../types';
 
 
 function ConfirmDialog({
@@ -58,7 +59,7 @@ const STAGE_OPTIONS = [
 
 export default function ApplicationDetails() {
   const { id } = useParams();
-  const [application, setApplication] = useState<any>(null);
+  const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>('PENDING');
   const [stage, setStage] = useState<string>('checagem');

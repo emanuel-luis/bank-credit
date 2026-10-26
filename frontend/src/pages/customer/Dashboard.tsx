@@ -6,10 +6,11 @@ import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import ApplicationCard from '../../components/loan/ApplicationCard';
 import { useMockApplication } from '../../context/mockdata';
+import type { Application, ApiApplication } from '../../types';
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
-  const [recentApplications, setRecentApplications] = useState<any[]>([]);
+  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
   const [total, setTotal] = useState(0);
   const [pending, setPending] = useState(0);
   const [approved, setApproved] = useState(0);
@@ -25,22 +26,22 @@ export default function CustomerDashboard() {
         }
       });
       if (!response.ok) return;
-      const data = await response.json();
+      const data: ApiApplication[] = await response.json();
       setTotal(data.length);
-      setPending(data.filter((a: any) => a.status === 'PENDING').length);
-      setApproved(data.filter((a: any) => a.status === 'APPROVED').length);
+      setPending(data.filter((a) => a.status === 'PENDING').length);
+      setApproved(data.filter((a) => a.status === 'APPROVED').length);
 
       // Enriquecer com dados mockados do contexto
-      const enriched = data.map((app: any) => ({
+      const enriched = data.map((app) => ({
         ...app,
         ...(mockData[app.id] || {})
       }));
 
       // Ordena por data de atualização (updated_at) ou data de criação (created_at)
       const sorted = enriched
-        .sort((a: any, b: any) => {
-          const dateA = new Date(a.updated_at || a.created_at).getTime();
-          const dateB = new Date(b.updated_at || b.created_at).getTime();
+        .sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
           return dateB - dateA;
         })
         .slice(0, 2);

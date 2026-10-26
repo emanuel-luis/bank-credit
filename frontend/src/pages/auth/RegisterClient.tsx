@@ -52,8 +52,8 @@ export default function RegisterClient() {
       });
       if (!res.ok) throw new Error('Erro ao cadastrar cliente');
       setSuccess('Cadastro realizado com sucesso!');
-    } catch (err: any) {
-      setError(err.message || 'Erro desconhecido');
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Erro desconhecido');
     } finally {
       setIsLoading(false);
     }
