@@ -19,6 +19,9 @@ dependencies = [
     "uvicorn[standard]>=0.54",
 ]
 
+[project.optional-dependencies]
+parquet = ["pyarrow>=20"]
+
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
@@ -59,6 +62,10 @@ timeout = 60
 strict = true
 files = ["src"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true  # the optional [parquet] extra is not installed in the dev group
 
 [tool.pydantic-mypy]
 init_typed = true
