@@ -39,6 +39,13 @@ const navigationByRole: Record<UserRole, Array<{ name: string; href: string; ico
   ],
 };
 
+/** Detail and form pages are not in the sidebar, so they get their title from the path. */
+function detailTitle(pathname: string): string | undefined {
+  if (pathname.endsWith('/applications/new')) return 'Nova solicitação';
+  const id = /\/applications\/(\d+)$/.exec(pathname)?.[1];
+  return id ? `Solicitação #${id}` : undefined;
+}
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -232,7 +239,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
                   <div className="flex items-center justify-between">
                     <h1 className="text-lg font-semibold text-gray-900">
-                      {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
+                      {navigation.find(item => item.href === location.pathname)?.name ?? detailTitle(location.pathname) ?? 'Painel'}
                     </h1>
                     <div className="flex items-center space-x-4">
                       <button className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
