@@ -9,6 +9,7 @@ RequestExpired. The caller must commit that write before reporting the error.
 """
 
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass, fields, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -18,8 +19,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from bank_credit.app.domain.enums import (
+    REQUIRED_DOCUMENTS,
     TERMINAL_STATUSES,
     Action,
+    DocumentType,
     EventType,
     RequestStatus,
     UserRole,
@@ -27,6 +30,7 @@ from bank_credit.app.domain.enums import (
 from bank_credit.app.models import (
     Client,
     CreditRequest,
+    RequestDocument,
     RequestEvent,
     Stage,
     StageRoute,
@@ -85,6 +89,11 @@ class InvalidAmount(WorkflowError):
 class InvalidDeliverDate(WorkflowError):
     status_code = 422
     code = "invalid_deliver_date"
+
+
+class MissingDocuments(WorkflowError):
+    status_code = 422
+    code = "missing_documents"
 
 
 # --- The transition table ---
@@ -329,6 +338,7 @@ def submit_request(
     purpose: str,
     term_days: int,
     deliver_date: date,
+    documents: Collection[DocumentType],
 ) -> CreditRequest:
     _require_aware(now)
     if actor.role is not UserRole.CUSTOMER or client.user_id != actor.id:
@@ -337,6 +347,9 @@ def submit_request(
         raise InvalidAmount("amount must be greater than 0")
     if deliver_date < now.date():
         raise InvalidDeliverDate("deliver_date must not be in the past")
+    missing = sorted(REQUIRED_DOCUMENTS - set(documents))
+    if missing:
+        raise MissingDocuments("missing required documents: " + ", ".join(missing))
     first_stage = _stages_after(db, None)[0]
     route = resolve_route(db, first_stage, amount)
     request = CreditRequest(
@@ -355,6 +368,9 @@ def submit_request(
         last_seq=0,
         updated_at=now,
     )
+    request.documents = [
+        RequestDocument(document_type=d, declared_at=now) for d in sorted(set(documents))
+    ]
     db.add(request)
     db.flush()
     _emit(
