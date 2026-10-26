@@ -1,0 +1,14 @@
+.venv
+venv*/
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.env
+.env.*
+scratch/
+tests/
+Dockerfile
+.dockerignore
