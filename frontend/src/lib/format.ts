@@ -22,3 +22,11 @@ export function formatDate(day: string | null | undefined): string {
   if (!y || !m || !d) return day;
   return date.format(new Date(y, m - 1, d));
 }
+
+/** CNPJ (numeric or alphanumeric, 14 characters) as AA.AAA.AAA/AAAA-DD. Other input is returned as-is. */
+export function formatCnpj(value: string | null | undefined): string {
+  if (!value) return '-';
+  const v = value.toUpperCase();
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(v)) return value;
+  return `${v.slice(0, 2)}.${v.slice(2, 5)}.${v.slice(5, 8)}/${v.slice(8, 12)}-${v.slice(12)}`;
+}

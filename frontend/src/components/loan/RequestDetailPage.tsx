@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import type { Action } from '../../api/types';
 import { useHistory, useRequest, useTransition } from '../../hooks/useRequests';
 import { errorMessage } from '../../lib/errors';
-import { formatDate, formatDateTime, formatMoney } from '../../lib/format';
+import { formatCnpj, formatDate, formatDateTime, formatMoney } from '../../lib/format';
 import { DOCUMENT_LABELS, EVENT_LABELS } from '../../lib/labels';
 import Button from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -100,7 +100,7 @@ export default function RequestDetailPage({ listPath, showClient = false }: Requ
               <Field label="Empresa">
                 {r.client.trade_name}
                 <div className="text-xs text-gray-500">
-                  {r.client.legal_name} - {r.client.cnpj}
+                  {r.client.legal_name} - {formatCnpj(r.client.cnpj)}
                 </div>
               </Field>
             )}
