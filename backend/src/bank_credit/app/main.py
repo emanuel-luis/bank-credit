@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from bank_credit.app.config import get_settings
+from bank_credit.app.db import get_db
 from bank_credit.app.errors import register_error_handlers
 from bank_credit.app.routers.auth import router as auth_router
 from bank_credit.app.routers.credit_request import router as credit_router
@@ -33,5 +38,13 @@ def create_app() -> FastAPI:
     @app.get("/")
     def read_root() -> dict[str, str]:
         return {"message": "Bank Credit API"}
+
+    @app.get("/health", include_in_schema=False)
+    def health(db: Session = Depends(get_db)) -> JSONResponse:
+        try:
+            db.execute(text("SELECT 1"))
+        except SQLAlchemyError:
+            return JSONResponse({"status": "unavailable"}, status_code=503)
+        return JSONResponse({"status": "ok"})
 
     return app
