@@ -14,7 +14,8 @@ from bank_credit.app.routers.credit_request import workflow_router
 from bank_credit.app.routers.notification import router as notification_router
 
 
-def create_app() -> FastAPI:
+def create_app(cors_origins: list[str] | None = None) -> FastAPI:
+    """Build the app. Without cors_origins they come from the settings (which need SECRET_KEY)."""
     app = FastAPI(
         title="Bank Credit API",
         version="1.0.0",
@@ -23,7 +24,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=get_settings().cors_origins,
+        allow_origins=get_settings().cors_origins if cors_origins is None else cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
