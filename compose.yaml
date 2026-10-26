@@ -30,6 +30,9 @@ services:
   migrate:
     <<: *backend
     command: ["alembic", "upgrade", "head"]
+    # One-shot job: the image's HTTP healthcheck does not apply.
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,6 +41,9 @@ services:
   seed:
     <<: *backend
     command: ["sh", "-c", "bank-credit seed && bank-credit simulate --seed 42"]
+    # One-shot job: the image's HTTP healthcheck does not apply.
+    healthcheck:
+      disable: true
     depends_on:
       migrate:
         condition: service_completed_successfully
