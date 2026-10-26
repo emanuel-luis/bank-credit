@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams } from 'react-router-dom';
 import  ApplicationStatusBadge from '../../components/loan/ApplicationStatusBadge';
 import { Card } from '../../components/ui/Card';

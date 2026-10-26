@@ -6,8 +6,8 @@ import { Upload, X, FileText, CheckCircle, AlertCircle, ChevronLeft } from 'luci
 import { useDropzone } from 'react-dropzone';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
-import { useAuth } from '../../contexts/AuthContext';
 import { useMockApplication } from '../../context/mockdata';
+import type { StoredForm } from '../../types';
 
 type ApplicationFormData = {
   companyName: string;
@@ -22,6 +22,8 @@ type ApplicationFormData = {
   departamento?: string;
 };
 
+// Helper shared with the other pages; moves out of this file in phase 4.
+// eslint-disable-next-line react-refresh/only-export-components
 export function getCentral(amount: number) {
   if (amount < 4800000) {
     return 'Central de Varejo';
@@ -31,7 +33,6 @@ export function getCentral(amount: number) {
 
 export default function CustomerNewApplication() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -74,7 +75,7 @@ export default function CustomerNewApplication() {
       checklist: []
     };
     // Dados mockados (não enviados para a API)
-    const mockData = {
+    const mockData: StoredForm = {
       companyName: values.companyName,
       cnpj: values.cnpj,
       contactName: values.contactName,
@@ -128,7 +129,7 @@ export default function CustomerNewApplication() {
       setTimeout(() => {
         navigate('/customer/applications');
       }, 2000);
-    } catch (err) {
+    } catch {
       alert('Erro ao enviar solicitação');
     } finally {
       setIsSubmitting(false);
@@ -200,7 +201,7 @@ export default function CustomerNewApplication() {
                     {...register('cnpj', {
                       required: 'CNPJ is required',
                       pattern: {
-                        value: /^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$/,
+                        value: /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/,
                         message: 'Please enter a valid CNPJ'
                       }
                     })}
@@ -466,7 +467,7 @@ export default function CustomerNewApplication() {
           </>
         );
       case 4:
-      default:
+      default: {
         const values = getValues();
         const central = getCentral(values.amount);
         return (
@@ -577,6 +578,7 @@ export default function CustomerNewApplication() {
             </CardFooter>
           </>
         );
+      }
     }
   };
 
