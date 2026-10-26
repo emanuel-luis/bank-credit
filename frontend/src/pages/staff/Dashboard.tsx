@@ -21,10 +21,14 @@ export default function StaffDashboard() {
   const workflow = useWorkflow();
   const inReview = useRequests({ scope, status: 'IN_REVIEW', limit: 1 });
   const overdue = useRequests({ scope, overdue: true, limit: 1 });
-  // The queue is ordered by SLA, so one page of 100 holds everything due soon unless the backlog is larger.
+  // Only the sector queue is ordered by SLA (admin gets submitted_at desc), so sort here.
+  // One page of 100 holds everything due soon unless the backlog is larger.
   const next = useRequests({ scope, status: 'IN_REVIEW', limit: 100 });
+  const bySla = next.data?.items
+    .slice()
+    .sort((a, b) => (a.sla_due_at ?? '9999').localeCompare(b.sla_due_at ?? '9999'));
 
-  const dueSoon = next.data?.items.filter(
+  const dueSoon = bySla?.filter(
     (r) => !r.is_overdue && r.sla_due_at && new Date(r.sla_due_at).getTime() - Date.now() <= DAY_MS,
   ).length;
 
@@ -61,7 +65,7 @@ export default function StaffDashboard() {
           </Link>
         </CardHeader>
         {next.isError && <p className="p-6 text-sm text-red-600">{errorMessage(next.error)}</p>}
-        {next.data && <RequestTable items={next.data.items.slice(0, 5)} basePath={basePath} showClient />}
+        {bySla && <RequestTable items={bySla.slice(0, 5)} basePath={basePath} showClient />}
       </Card>
     </div>
   );
