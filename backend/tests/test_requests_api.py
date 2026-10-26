@@ -73,7 +73,7 @@ def test_submit_requires_every_required_document(test_app, auth, customer):
         )
         assert response.status_code == 422, documents
         assert response.json()["code"] == "missing_documents"
-    assert sorted(REQUIRED_DOCUMENTS)[0] in response.json()["detail"]
+    assert min(REQUIRED_DOCUMENTS) in response.json()["detail"]
     assert test_app.get("/requests", headers=auth(customer)).json()["total"] == 0
 
 
