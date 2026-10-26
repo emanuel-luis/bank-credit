@@ -132,6 +132,7 @@ jobs:
           curl -fsS http://localhost:8080/api/auth/token \
             -d "username=admin@example.com" --data-urlencode "password=$DEMO_PASSWORD" \
             | jq -e '.access_token' > /dev/null
+          python3 scripts/smoke.py
       - name: Compose logs
         if: failure()
         run: docker compose logs --no-color
