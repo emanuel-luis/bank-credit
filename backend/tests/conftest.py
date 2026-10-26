@@ -13,6 +13,7 @@ os.environ["SECRET_KEY"] = "test-secret-" + "x" * 52
 os.environ["DATABASE_URL"] = "sqlite://"
 
 from bank_credit.app.database import Base, get_db
+
 from bank_credit.app.main import create_app
 from bank_credit.app.models import (
     Client,
