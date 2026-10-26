@@ -10,6 +10,7 @@ import {
   THROUGHPUT_EXITS,
   weekLabel,
   weeksOf,
+  defaultWeek,
 } from '../../lib/reports';
 import { BreachChart, StageChart, ThroughputChart } from './Charts';
 import { seriesColor, THROUGHPUT_LABELS } from './theme';
@@ -59,7 +60,9 @@ export default function ReportsPage() {
 
   const stageRows = useMemo(() => stages.data?.data ?? [], [stages.data]);
   const weeks = useMemo(() => weeksOf(stageRows), [stageRows]);
-  const week = weeks.includes(pickedWeek) ? pickedWeek : (weeks[0] ?? '');
+  const week = weeks.includes(pickedWeek)
+    ? pickedWeek
+    : defaultWeek(weeks, new Date().toISOString().slice(0, 10));
   const bars = useMemo(
     () => stageBars(stageRows, week, stageNames, sectorNames, stageCodes),
     [stageRows, week, stageNames, sectorNames, stageCodes],
@@ -133,7 +136,7 @@ export default function ReportsPage() {
 
       <Panel
         title="Tempo em cada etapa"
-        note="Mediana e p90 em horas da semana escolhida (a mais recente por padrão). Percentis não se somam nem se tiram a média entre semanas, por isso mostramos uma semana por vez."
+        note="Mediana e p90 em horas da semana escolhida (por padrão, a última semana completa). Percentis não se somam nem se tiram a média entre semanas, por isso mostramos uma semana por vez."
         isLoading={stages.isLoading}
         error={stages.error}
         isEmpty={weeks.length === 0}

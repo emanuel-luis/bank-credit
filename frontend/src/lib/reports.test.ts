@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLabel, pivotBreachRate, sectorOrder, stageBars, throughputByDay, weekLabel, weeksOf } from './reports';
+import { dayLabel, pivotBreachRate, sectorOrder, stageBars, throughputByDay, weekLabel, weeksOf, defaultWeek } from './reports';
 
 describe('labels', () => {
   it('formats days and weeks in pt-BR', () => {
@@ -79,5 +79,19 @@ describe('throughputByDay', () => {
 describe('sectorOrder', () => {
   it('is sorted and unique', () => {
     expect(sectorOrder(['b', 'a'], ['c', 'a'])).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('defaultWeek', () => {
+  const weeks = ['2026-10-26', '2026-10-19', '2026-10-12'];
+  it('skips the current week that has not ended', () => {
+    expect(defaultWeek(weeks, '2026-10-28')).toBe('2026-10-19');
+  });
+  it('takes the newest week once it has ended', () => {
+    expect(defaultWeek(weeks, '2026-11-02')).toBe('2026-10-26');
+  });
+  it('falls back to the newest week and handles no data', () => {
+    expect(defaultWeek(['2026-10-26'], '2026-10-27')).toBe('2026-10-26');
+    expect(defaultWeek([], '2026-10-27')).toBe('');
   });
 });
