@@ -20,7 +20,7 @@ from bank_credit.app.db import Base, get_db
 from bank_credit.app.deps import get_now
 from bank_credit.app.domain import workflow
 from bank_credit.app.domain.documents import with_cnpj_check_digits, with_cpf_check_digits
-from bank_credit.app.domain.enums import UserRole
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS, UserRole
 from bank_credit.app.domain.reference import ensure_reference_data
 from bank_credit.app.main import create_app
 from bank_credit.app.models import Client, CreditRequest, Employee, Sector, User
@@ -212,6 +212,7 @@ def submit(db: Session) -> Callable[..., CreditRequest]:
             purpose=purpose,
             term_days=90,
             deliver_date=(at + timedelta(days=30)).date(),
+            documents=REQUIRED_DOCUMENTS,
         )
         db.commit()
         return request

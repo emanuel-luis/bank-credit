@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from bank_credit.app.domain import workflow
 from bank_credit.app.domain.enums import (
+    REQUIRED_DOCUMENTS,
     TERMINAL_STATUSES,
     Action,
     EventType,
@@ -223,6 +224,7 @@ def simulate(
                     purpose=rng.choice(PURPOSES),
                     term_days=rng.choice((30, 60, 90, 180, 360)),
                     deliver_date=(at + timedelta(days=rng.randint(15, 90))).date(),
+                    documents=REQUIRED_DOCUMENTS,
                 )
                 _drive(db, request, customer, staff, rng, as_of, run)
                 requests += 1

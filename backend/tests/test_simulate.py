@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from bank_credit.app.db import Base
-from bank_credit.app.domain.enums import EventType, JobStatus, RequestStatus
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS, EventType, JobStatus, RequestStatus
 from bank_credit.app.domain.workflow import replay, state_of
 from bank_credit.app.jobs import seed as seed_module
 from bank_credit.app.jobs import simulate as simulate_module
@@ -101,6 +101,12 @@ def test_simulate_is_deterministic_for_a_seed_and_as_of(sim):
 
 def test_replay_matches_the_projection_for_every_request(sim):
     assert projection_matches_replay(sim) >= 20
+
+
+def test_simulated_requests_declare_the_required_documents(sim):
+    requests = sim.scalars(select(CreditRequest)).all()
+    assert requests
+    assert all({d.document_type for d in r.documents} == REQUIRED_DOCUMENTS for r in requests)
 
 
 def test_history_has_every_kind_of_outcome(sim):

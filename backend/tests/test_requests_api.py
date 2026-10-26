@@ -5,7 +5,7 @@ from fastapi import status
 from sqlalchemy import select
 
 from bank_credit.app.domain import workflow
-from bank_credit.app.domain.enums import Action, UserRole
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS, Action, UserRole
 from bank_credit.app.models import CreditRequest, Notification
 
 HOUR = timedelta(hours=1)
@@ -17,6 +17,7 @@ def body(**overrides):
         "purpose": "Working capital",
         "term_days": 90,
         "deliver_date": (T0 + timedelta(days=30)).date().isoformat(),
+        "documents": sorted(REQUIRED_DOCUMENTS),
         **overrides,
     }
 
@@ -54,6 +55,38 @@ def test_customer_submits_and_reads_the_detail(test_app, auth, customer):
     detail = test_app.get(f"/requests/{data['id']}", headers=auth(customer))
     assert detail.status_code == status.HTTP_200_OK
     assert detail.json() == data
+
+
+def test_detail_lists_the_declared_documents(test_app, auth, customer):
+    documents = sorted([*REQUIRED_DOCUMENTS, "collateral"])
+    data = create(test_app, auth, customer, documents=documents)
+    expected = [{"document_type": d, "declared_at": "2026-01-05T10:00:00Z"} for d in documents]
+    assert data["documents"] == expected
+    detail = test_app.get(f"/requests/{data['id']}", headers=auth(customer))
+    assert detail.json()["documents"] == expected
+
+
+def test_submit_requires_every_required_document(test_app, auth, customer):
+    for documents in ([], ["collateral"], sorted(REQUIRED_DOCUMENTS)[1:]):
+        response = test_app.post(
+            "/requests", json=body(documents=documents), headers=auth(customer)
+        )
+        assert response.status_code == 422, documents
+        assert response.json()["code"] == "missing_documents"
+    assert sorted(REQUIRED_DOCUMENTS)[0] in response.json()["detail"]
+    assert test_app.get("/requests", headers=auth(customer)).json()["total"] == 0
+
+
+def test_submit_rejects_duplicate_and_unknown_documents(test_app, auth, customer):
+    for documents in (
+        [*sorted(REQUIRED_DOCUMENTS), "collateral", "collateral"],
+        [*sorted(REQUIRED_DOCUMENTS), "passport"],
+    ):
+        response = test_app.post(
+            "/requests", json=body(documents=documents), headers=auth(customer)
+        )
+        assert response.status_code == 422
+        assert response.json()["code"] == "validation_error"
 
 
 def test_only_customers_submit(test_app, auth, retail_staff):
