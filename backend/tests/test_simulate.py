@@ -9,6 +9,8 @@ from sqlalchemy.pool import StaticPool
 from bank_credit.app.db import Base
 from bank_credit.app.domain.enums import EventType, JobStatus, RequestStatus
 from bank_credit.app.domain.workflow import replay, state_of
+from bank_credit.app.jobs import seed as seed_module
+from bank_credit.app.jobs import simulate as simulate_module
 from bank_credit.app.jobs.seed import seed
 from bank_credit.app.jobs.simulate import simulate
 from bank_credit.app.jobs.sla_check import sla_check
@@ -41,11 +43,16 @@ def fresh_engine() -> Engine:
     return engine
 
 
-def simulated_db(**overrides) -> Session:
+def simulated_db(real_hashes: bool = False, **overrides) -> Session:
+    """A seeded and simulated database. Argon2 is slow, so hashes are fake unless asked for."""
     db = Session(fresh_engine(), expire_on_commit=False)
-    seed(db, "pw")
-    db.commit()
-    simulate(db, **{**SMALL, **overrides})
+    with pytest.MonkeyPatch.context() as patch:
+        if not real_hashes:
+            for module in (seed_module, simulate_module):
+                patch.setattr(module, "get_password_hash", lambda password: f"fake${password}")
+        seed(db, "pw")
+        db.commit()
+        simulate(db, **{**SMALL, **overrides})
     return db
 
 
@@ -80,7 +87,7 @@ def projection_matches_replay(db: Session) -> int:
 
 @pytest.fixture(scope="module")
 def sim():
-    db = simulated_db()
+    db = simulated_db(real_hashes=True)
     yield db
     db.close()
 
