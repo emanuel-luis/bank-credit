@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createRequest, getHistory, getRequest, listRequests, transitionRequest } from '../api/requests';
+import { createRequest, getHistory, getRequest, getWorkflow, listRequests, transitionRequest } from '../api/requests';
 import type { CreateRequestBody, ListParams, TransitionBody } from '../api/types';
 import { apiErrorCode } from '../lib/errors';
 
@@ -36,3 +36,7 @@ export function useTransition(id: number) {
     },
   });
 }
+
+/** Stage codes and pt-BR names; the workflow rarely changes, so keep it for the session. */
+export const useWorkflow = () =>
+  useQuery({ queryKey: ['workflow'], queryFn: getWorkflow, staleTime: Infinity });

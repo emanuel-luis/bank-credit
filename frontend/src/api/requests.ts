@@ -6,6 +6,7 @@ import type {
   RequestDetail,
   RequestPage,
   TransitionBody,
+  Workflow,
 } from './types';
 
 export const listRequests = async (params: ListParams): Promise<RequestPage> =>
@@ -22,3 +23,5 @@ export const createRequest = async (body: CreateRequestBody): Promise<RequestDet
 
 export const transitionRequest = async (id: number, body: TransitionBody): Promise<RequestDetail> =>
   (await api.post<RequestDetail>(`/requests/${id}/transitions`, body)).data;
+
+export const getWorkflow = async (): Promise<Workflow> => (await api.get<Workflow>('/workflow')).data;
