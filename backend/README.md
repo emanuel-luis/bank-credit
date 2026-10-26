@@ -1,7 +1,7 @@
 # Bank Credit API
 
-FastAPI backend for bank credit requests: authentication, document checklist, graph-based routing
-between approval stages, SLAs and notifications.
+FastAPI backend for bank credit requests: authentication, document checklist, routing through five
+approval stages by amount band, SLAs, an append-only event log, analytics and exports.
 
 ## Setup
 
@@ -49,12 +49,15 @@ TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/bank_credit_
 
 ## Main endpoints
 
-- `POST /auth/token`: login (OAuth2 password form), returns a JWT
-- `POST /auth/register/client`, `POST /auth/register/employee`: sign-up
-- `/requests`: credit requests, status changes, routing and history
-- `/graph`: the approval-stage graph
+- `POST /auth/token`: login (OAuth2 password form), returns a JWT; `GET /auth/me`
+- `POST /auth/register/client`: customer sign-up (staff come from `bank-credit seed`)
+- `GET /requests`, `POST /requests`, `GET /requests/{id}`, `GET /requests/{id}/history`,
+  `POST /requests/{id}/transitions`: credit requests and the workflow
+- `GET /workflow`: stages, sectors and amount bands
 - `/notifications`: client notifications
-- `/analytics/sla-breach-rate`, `/analytics/time-in-stage`, `/analytics/throughput`: SLA analytics over the `v_*` SQL views (managers and admins; Postgres only)
+- `/analytics/sla-breach-rate`, `/analytics/time-in-stage`, `/analytics/throughput`: SLA
+  analytics over the `v_*` SQL views (managers and admins; Postgres only)
+- `GET /health`: database ping
 
 Export a checked dataset partition with `bank-credit export --dataset request_events|stage_intervals|sla_breach_weekly --format csv|parquet --out data/exports` (Parquet needs `uv sync --extra parquet`).
 
@@ -63,13 +66,16 @@ Export a checked dataset partition with `bank-credit export --dataset request_ev
 ```
 src/bank_credit/
   app/
-    config.py     # settings from env / .env
-    security.py   # password hashing and JWT
-    database.py   # engine, session, get_db
-    models.py  schemas.py  email.py  utils.py
-    routers/      # auth, credit_request, graph, notification
-    views/        # auth, credit_request, routing, sla
-  scripts/        # serve, populate
-tests/
+    config.py      # settings from env / .env
+    security.py    # password hashing and JWT
+    db.py          # declarative base, UTC datetime type, engine, sessions
+    models.py  schemas.py  deps.py  errors.py  notifications.py  email.py  views.py
+    domain/        # enums, CPF/CNPJ checks, reference workflow, transition service
+    routers/       # auth, credit_request, notification, analytics
+    jobs/          # runs (job_runs), seed, simulate, sla_check, export
+    contracts/     # export row contracts
+    cli.py         # bank-credit command
+  sql/views/       # versioned analytics views
+tests/             # unit (SQLite) and integration (Postgres)
 alembic/
 ```
