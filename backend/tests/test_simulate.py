@@ -78,6 +78,8 @@ def event_digest(db: Session) -> str:
 
 
 def projection_matches_replay(db: Session) -> int:
+    # Drop the identity map so the checks read stored rows, not in-memory objects.
+    db.expire_all()
     requests = list(db.scalars(select(CreditRequest)))
     for request in requests:
         events = list(db.scalars(select(RequestEvent).where(RequestEvent.request_id == request.id)))

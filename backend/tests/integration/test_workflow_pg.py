@@ -110,6 +110,8 @@ def test_simulation_replays_to_the_projection_on_postgres(seeded_engine):
     with Session(seeded_engine, expire_on_commit=False) as db:
         written = simulate(db, seed=3, as_of=as_of, days=45, clients=12)
         assert written > 0
+        # Drop the identity map so the checks below read what Postgres stored.
+        db.expire_all()
         requests = list(db.scalars(select(CreditRequest)))
         assert len(requests) >= 12
         for request in requests:
