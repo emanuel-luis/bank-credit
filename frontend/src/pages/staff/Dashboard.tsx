@@ -2,15 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  BarChart3,
   FileText,
   Clock,
   AlertTriangle,
   CheckCircle,
-  BarChart,
   ArrowUpRight,
-  ArrowDownRight,
-  Users
+  ArrowDownRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -31,6 +28,7 @@ import {
 } from 'chart.js';
 // Importação correta do plugin
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import type { Application, ApiApplication } from '../../types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
@@ -38,12 +36,12 @@ export default function StaffDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [applications, setApplications] = useState<any[]>([]);
-  const [pending, setPending] = useState<any[]>([]);
-  const [approved, setApproved] = useState<any[]>([]);
-  const [rejected, setRejected] = useState<any[]>([]);
-  const [underReview, setUnderReview] = useState<any[]>([]);
-  const [slaWarnings, setSlaWarnings] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [pending, setPending] = useState<Application[]>([]);
+  const [approved, setApproved] = useState<Application[]>([]);
+  const [rejected, setRejected] = useState<Application[]>([]);
+  const [underReview, setUnderReview] = useState<Application[]>([]);
+  const [slaWarnings, setSlaWarnings] = useState<Application[]>([]);
   const { mockData } = useMockApplication();
 
   useEffect(() => {
@@ -66,23 +64,23 @@ export default function StaffDashboard() {
         }
       });
       if (!response.ok) return;
-      const data = await response.json();
+      const data: ApiApplication[] = await response.json();
 
       // Enriquecer com dados do mockData (contexto)
-      const enriched = data.map((app: any) => ({
+      const enriched = data.map((app) => ({
         ...app,
         ...(mockData[app.id] || {})
       }));
 
       setApplications(enriched);
-      setPending(enriched.filter((a: any) => a.status === 'PENDING'));
-      setApproved(enriched.filter((a: any) => a.status === 'APPROVED'));
-      setRejected(enriched.filter((a: any) => a.status === 'REJECTED'));
-      setUnderReview(enriched.filter((a: any) => a.status === 'under_review' || a.status === 'document_check'));
+      setPending(enriched.filter((a) => a.status === 'PENDING'));
+      setApproved(enriched.filter((a) => a.status === 'APPROVED'));
+      setRejected(enriched.filter((a) => a.status === 'REJECTED'));
+      setUnderReview(enriched.filter((a) => a.status === 'under_review' || a.status === 'document_check'));
 
       // SLA warnings: exemplo, prazo de entrega em até 7 dias
       setSlaWarnings(
-        enriched.filter((a: any) => {
+        enriched.filter((a) => {
           if (!a.deliver_date) return false;
           const daysLeft = Math.ceil((new Date(a.deliver_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
           return daysLeft <= 7 && a.status !== 'APPROVED' && a.status !== 'REJECTED';
@@ -138,10 +136,10 @@ export default function StaffDashboard() {
         font: { size: 18 }
       },
       datalabels: {
-        anchor: 'end',
-        align: 'end',
+        anchor: 'end' as const,
+        align: 'end' as const,
         color: '#222',
-        font: { weight: 'bold', size: 14 },
+        font: { weight: 'bold' as const, size: 14 },
         formatter: Math.round
       }
     },
@@ -363,7 +361,7 @@ export default function StaffDashboard() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {pending.map((application) => {
                       // Calcula dias restantes para o deadline
-                      let daysRemaining = '-';
+                      let daysRemaining: string | number = '-';
                       if (application.deliver_date) {
                         const diff = Math.ceil((new Date(application.deliver_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                         daysRemaining = diff >= 0 ? diff : 0;
@@ -383,7 +381,7 @@ export default function StaffDashboard() {
                             <ApplicationStatusBadge status={application.status} />
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className={`text-sm font-medium ${daysRemaining <= 7 ? 'text-error-600' : 'text-gray-900'}`}>
+                            <div className={`text-sm font-medium ${typeof daysRemaining === 'number' && daysRemaining <= 7 ? 'text-error-600' : 'text-gray-900'}`}>
                               {daysRemaining !== '-' ? `${daysRemaining} dias` : '-'}
                             </div>
                           </td>
@@ -438,7 +436,7 @@ export default function StaffDashboard() {
                               <AlertTriangle className="h-4 w-4 text-warning-500 mr-1" />
                               <span className="text-sm font-medium text-warning-600">
                                 {(() => {
-                                  const diff = Math.ceil((new Date(warning.deliver_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                  const diff = Math.ceil((new Date(warning.deliver_date ?? 0).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                                   return diff >= 0 ? `${diff} dias restantes` : 'Expirado';
                                 })()}
                               </span>

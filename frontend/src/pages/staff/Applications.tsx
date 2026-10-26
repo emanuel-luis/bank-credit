@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import ApplicationCard from '../../components/loan/ApplicationCard';
 import Button from '../../components/ui/Button';
 import { useMockApplication } from '../../context/mockdata';
 import { getCentral } from '../customer/NewApplication';
+import type { Application, ApiApplication } from '../../types';
 
 const PAGE_SIZE = 6;
 
 export default function Applications() {
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export default function Applications() {
       const data = await response.json();
 
       // Sempre prioriza status e campos do mockData
-      const enriched = data.map((app: any) => ({
+      const enriched = (data as ApiApplication[]).map((app) => ({
         ...app,
         ...(mockData[app.id] || {}),
         status: mockData[app.id]?.status || app.status,
@@ -53,9 +54,9 @@ export default function Applications() {
 
       // Contagens dinâmicas
       setTotal(enriched.length);
-      setPendentes(enriched.filter((a: any) => a.status === 'PENDING').length);
-      setAprovadas(enriched.filter((a: any) => a.status === 'APPROVED').length);
-      setRejeitadas(enriched.filter((a: any) => a.status === 'REJECTED').length);
+      setPendentes(enriched.filter((a) => a.status === 'PENDING').length);
+      setAprovadas(enriched.filter((a) => a.status === 'APPROVED').length);
+      setRejeitadas(enriched.filter((a) => a.status === 'REJECTED').length);
 
       setLoading(false);
     };
@@ -115,10 +116,7 @@ export default function Applications() {
                   {...application}
                   status={application.status}
                   companyName={(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
-                  contactName={application.client?.user?.full_name}
-                  cnpj={application.client?.cnpj}
                   purpose={application.purpose}
-                  term={application.term}
                   submittedAt={application.created_at}
                   central={getCentral(application.amount) || '-'}
                   onViewDetails={(id) => navigate(`/staff/applications/${id}`)}

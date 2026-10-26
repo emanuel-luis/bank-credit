@@ -1,5 +1,3 @@
-import React from 'react';
-import { ApplicationCard } from '../../components/loan/ApplicationCard';
 
 export default function AdminApplications() {
   return (

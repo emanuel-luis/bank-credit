@@ -5,7 +5,7 @@ export type UserRole = 'customer' | 'staff' | 'manager' | 'admin';
 
 interface User {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
   role: UserRole;
   department?: string;
@@ -86,6 +86,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Hook next to its provider on purpose.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
