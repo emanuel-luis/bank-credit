@@ -71,3 +71,12 @@ ignore_missing_imports = true  # pyarrow ships no type information
 [tool.pydantic-mypy]
 init_typed = true
 init_forbid_extra = true
+
+[tool.coverage.run]
+source = ["bank_credit"]
+
+[tool.coverage.report]
+# Unit tests reach 95% on SQLite; the floor leaves room without letting coverage slide.
+fail_under = 90
+show_missing = true
+skip_covered = true

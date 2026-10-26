@@ -23,6 +23,7 @@ All notable changes to this project are documented here. The format follows
   trigger and an ORM guard; `job_runs` run metadata; `seed`, deterministic `simulate` and
   idempotent `sla-check` jobs behind one `bank-credit` CLI.
 - Docs: architecture, data contracts, runbook, decisions log, refactor plan.
+- Coverage gate: CI fails below 90% backend unit-test coverage.
 
 ### Changed
 
