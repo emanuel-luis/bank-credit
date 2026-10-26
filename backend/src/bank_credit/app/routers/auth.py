@@ -1,166 +1,106 @@
-# app/auth.py
+"""Authentication, client registration and the current-user dependencies."""
 
 import logging
+from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from bank_credit.app import models, schemas
-from bank_credit.app.database import get_db
+from bank_credit.app import schemas
+from bank_credit.app.db import get_db
+from bank_credit.app.deps import get_now
+from bank_credit.app.domain.enums import UserRole
 from bank_credit.app.email import send_welcome_email
-from bank_credit.app.security import create_access_token, decode_access_token, verify_password
-from bank_credit.app.views import auth as auth_view
+from bank_credit.app.errors import ApiError
+from bank_credit.app.models import Client, User
+from bank_credit.app.security import (
+    create_access_token,
+    decode_access_token,
+    get_password_hash,
+    verify_password,
+)
 
-# OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 router = APIRouter()
 logger = logging.getLogger("bank_credit.routers.auth")
 
-# --- Authentication dependencies ---
+
+def get_user_by_email(db: Session, email: str) -> User | None:
+    return db.scalar(select(User).where(User.email == email))
 
 
-async def authenticate_user(db: Session, email: str, password: str) -> models.User | None:
-    logger.info(f"[authenticate_user] Autenticando usuário {email}")
-    user = auth_view.get_user_by_email(db, email)
-    if not user:
-        return None
-    if not verify_password(password, user.hashed_password) or not user.is_active:
-        return None
-    return user
-
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-) -> models.User:
-    logger.info("[get_current_user] Validando token JWT.")
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Não foi possível validar as credenciais",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     email = decode_access_token(token)
-    if email is None:
-        logger.warning("[get_current_user] Token inválido ou sem subject.")
-        raise credentials_exception
-    user = auth_view.get_user_by_email(db, email=email)
+    user = get_user_by_email(db, email) if email else None
     if user is None:
-        logger.warning(f"[get_current_user] Usuário {email} não encontrado.")
-        raise credentials_exception
+        raise ApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "Could not validate credentials",
+            "invalid_credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
-async def get_current_active_user(
-    current_user: models.User = Depends(get_current_user),
-) -> models.User:
-    logger.info(
-        f"[get_current_active_user] Verificando se usuário {getattr(current_user, 'id', None)} está ativo."
-    )
+def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_active:
-        logger.warning(
-            f"[get_current_active_user] Usuário {getattr(current_user, 'id', None)} inativo."
-        )
-        raise HTTPException(status_code=400, detail="Usuário inativo")
-    logger.debug("[get_current_active_user] Usuário ativo.")
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Inactive user", "inactive_user")
     return current_user
 
 
-# --- Auth endpoints ---
+@router.post("/token", response_model=schemas.Token)
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+    now: datetime = Depends(get_now),
+) -> dict[str, str]:
+    user = get_user_by_email(db, form_data.username)
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(form_data.password, user.hashed_password)
+    ):
+        logger.warning("Login failed for %s", form_data.username)
+        raise ApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "Incorrect email or password",
+            "invalid_login",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user.last_login_at = now
+    db.commit()
+    return {"access_token": create_access_token(user.email), "token_type": "bearer"}
 
 
-@router.post("/token", response_model=schemas.Token, tags=["auth"])
-async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-):
-    logger.info(f"[POST /auth/token] Login attempt for {form_data.username}")
-    try:
-        user = await authenticate_user(db, form_data.username, form_data.password)
-        if not user:
-            logger.warning(f"[POST /auth/token] Login failed for {form_data.username}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Usuário ou senha incorretos",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        logger.info(f"[POST /auth/token] Login successful for {form_data.username}")
-        access_token = create_access_token(user.email)
-        return {"access_token": access_token, "token_type": "bearer"}
-    except Exception as e:
-        logger.error(f"[POST /auth/token] Error during login: {e}")
-        raise
-
-
-@router.post("/register/client", response_model=schemas.ClientUser, tags=["auth"])
-async def register_client(
-    client: schemas.ClientCreate,
+@router.post("/register/client", response_model=schemas.ClientWithUser)
+def register_client(
+    body: schemas.ClientCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-):
-    logger.info(f"[POST /auth/register/client] Register client {client.user.email}")
-    try:
-        if db.query(models.Client).filter(models.Client.cnpj == client.cnpj).first():
-            logger.warning(f"[POST /auth/register/client] CNPJ {client.cnpj} already registered")
-            raise HTTPException(status_code=400, detail="CNPJ já cadastrado")
-        if db.query(models.User).filter(models.User.email == client.user.email).first():
-            logger.warning(
-                f"[POST /auth/register/client] Email {client.user.email} already registered"
-            )
-            raise HTTPException(status_code=400, detail="Email já cadastrado")
-        db_client = auth_view.create_client(db, client)
-        background_tasks.add_task(
-            send_welcome_email, str(db_client.user.email), str(db_client.user.full_name)
-        )
-        logger.info(
-            f"[POST /auth/register/client] Client {client.user.email} registered successfully"
-        )
-        return db_client
-    except Exception as e:
-        logger.error(f"[POST /auth/register/client] Error registering client: {e}")
-        raise
+    now: datetime = Depends(get_now),
+) -> Client:
+    if db.scalar(select(Client.id).where(Client.cnpj == body.cnpj)):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "CNPJ already registered", "cnpj_taken")
+    if get_user_by_email(db, body.user.email):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "Email already registered", "email_taken")
+    user = User(
+        email=body.user.email,
+        full_name=body.user.full_name,
+        phone=body.user.phone,
+        hashed_password=get_password_hash(body.user.password),
+        role=UserRole.CUSTOMER,
+        created_at=now,
+    )
+    client = Client(user=user, **body.model_dump(exclude={"user"}))
+    db.add(client)
+    db.commit()
+    logger.info("Registered client %s (user %s)", client.id, user.id)
+    background_tasks.add_task(send_welcome_email, user.email, user.full_name)
+    return client
 
 
-@router.post("/register/employee", response_model=schemas.EmployeeUser, tags=["auth"])
-async def register_employee(
-    employee: schemas.EmployeeCreate,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    logger.info(f"[POST /auth/register/employee] Register employee {employee.user.email}")
-    try:
-        if (
-            db.query(models.Employee)
-            .filter(models.Employee.matricula == employee.matricula)
-            .first()
-        ):
-            logger.warning(
-                f"[POST /auth/register/employee] Matrícula {employee.matricula} already registered"
-            )
-            raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
-        if db.query(models.Employee).filter(models.Employee.cpf == employee.cpf).first():
-            logger.warning(f"[POST /auth/register/employee] CPF {employee.cpf} already registered")
-            raise HTTPException(status_code=400, detail="CPF já cadastrado")
-        if db.query(models.User).filter(models.User.email == employee.user.email).first():
-            logger.warning(
-                f"[POST /auth/register/employee] Email {employee.user.email} already registered"
-            )
-            raise HTTPException(status_code=400, detail="Email já cadastrado")
-        db_employee = auth_view.create_employee(db, employee)
-        background_tasks.add_task(
-            send_welcome_email, str(db_employee.user.email), str(db_employee.user.full_name)
-        )
-        logger.info(
-            f"[POST /auth/register/employee] Employee {employee.user.email} registered successfully"
-        )
-        return db_employee
-    except Exception as e:
-        logger.error(f"[POST /auth/register/employee] Error registering employee: {e}")
-        raise
-
-
-@router.get("/me", response_model=schemas.User, tags=["auth"])
-async def read_users_me(
-    current_user: models.User = Depends(get_current_active_user), db: Session = Depends(get_db)
-):
-    logger.info(f"[GET /auth/me] User {current_user.id}")
-    logger.debug(f"[GET /auth/me] Getting user info for user_id={current_user.id}")
+@router.get("/me", response_model=schemas.Me)
+def read_users_me(current_user: User = Depends(get_current_active_user)) -> User:
     return current_user

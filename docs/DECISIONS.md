@@ -21,3 +21,33 @@ recommended option; high-impact ones were answered by the owner.
 | 14 | 2026-10-25 | Table creation before Alembic owns the schema | Temporary `init_db()` in the FastAPI lifespan; removed when the Alembic initial revision lands | Without it a fresh database answered 500 on every endpoint between the two PRs |
 | 15 | 2026-10-25 | License | MIT `LICENSE` added in the first PR | Public portfolio repo; the README already announced MIT |
 | 16 | 2026-10-25 | Line endings | `.gitattributes` with `* text=auto eol=lf` | Files mixed CRLF and LF; LF everywhere keeps diffs readable |
+| 17 | 2026-10-25 | Workflow shape | Ordered `stages` (Checagem, Triagem, Análise, Criação de Instrumento, Central de Desembolso) replace the `processes.next_process_id` chain and networkx | The old "graph" was a linked list walked with networkx; the frontend already showed these five stages |
+| 18 | 2026-10-25 | Sector routing | Half-open amount bands on `stage_routes`, boundary 4,800,000.00 (Central de Varejo / Central de Médio e Grande), bands must cover [0, ∞) | Matches the frontend's "central" rule and removes the no-eligible-sector dead end |
+| 19 | 2026-10-25 | Roles | `users.role` (customer, staff, manager, admin) and `employees.sector_id`; drop groups, `require_all`, `Sector.manager_id`, `is_superuser` | Groups and `require_all` were never read; one role column is enough for the rules |
+| 20 | 2026-10-25 | Registration | Clients cannot set role or groups; employee self-registration removed, staff come from the seed | Anyone could register as admin or staff |
+| 21 | 2026-10-25 | Event log timing | `request_events` ships in phase 2 as the only write path; `request_history` is dropped and `/history` reads events | One transition service, no ad hoc history writes |
+| 22 | 2026-10-25 | Append-only enforcement | Postgres trigger on UPDATE/DELETE in phase 2 (revision 0002) plus an ORM guard; TRUNCATE allowed for reseeding | The rule belongs to the table and is tested in the same PR |
+| 23 | 2026-10-25 | Current state | Projection columns on `credit_requests`, updated in the same transaction as the event and checked against a replay in tests | Queue queries stay simple without window functions |
+| 24 | 2026-10-25 | Concurrency | Row lock, `unique(request_id, seq)` and `expected_seq` in the API | Two staff acting at once cannot both win |
+| 25 | 2026-10-25 | Expiry | 45 days after submission, RETURNED time included; also checked lazily on every transition; the unused 20-day rule is dropped | One rule, enforced even when the job has not run |
+| 26 | 2026-10-25 | SLA | `sla_hours` per stage route, `sla_due_at` on the request, idempotent `sla-check` CLI; `threading.Timer` removed | Timers were lost on restart; deadlines as data are queryable |
+| 27 | 2026-10-25 | Resubmission | A returned request re-enters the stage that returned it | Earlier stages already approved it |
+| 28 | 2026-10-25 | Admin scope | Admins may act on any sector | Demo operability |
+| 29 | 2026-10-25 | SLA breach notifications | Not sent to customers | Internal metric |
+| 30 | 2026-10-25 | Time | `timestamptz`, always UTC and tz-aware, passed into the domain as a parameter | Deterministic tests and simulation |
+| 31 | 2026-10-25 | Money | `numeric(14,2)`, JSON string | No float rounding |
+| 32 | 2026-10-25 | CPF/CNPJ | Stored normalized, checksum in pydantic, format CHECK in the database; CNPJ accepts the alphanumeric format | Alphanumeric CNPJs are being issued; the check digit rule is the same |
+| 33 | 2026-10-25 | Enums | VARCHAR + CHECK, not native Postgres enums | Cheaper migrations |
+| 34 | 2026-10-25 | Test databases | Unit tests on SQLite `create_all`; migrations and Postgres-only behavior in `integration` tests run in CI against a Postgres service container | Fast local loop; Postgres behavior still gated |
+| 35 | 2026-10-25 | Alembic config | `DatabaseSettings` split from `Settings` so migrations run without `SECRET_KEY` | Migration containers need no app secret |
+| 36 | 2026-10-25 | CLI | One `bank-credit` CLI with `serve`, `seed`, `simulate`, `sla-check`, `export` (supersedes the scripts in #7) | One entry point for the app and the jobs |
+| 37 | 2026-10-25 | Synthetic history | Generated through the domain service, deterministic for a given seed and as-of | Analytics run on data that obeys the same rules as the API |
+| 38 | 2026-10-25 | Run metadata | `job_runs` table; events carry `job_run_id` | Every job run is traceable with row counts |
+| 39 | 2026-10-25 | Documents | Declared checklist (`request_documents`, phase 4); no file upload | The demo stores no files |
+| 40 | 2026-10-25 | Frontend types | Generated from OpenAPI; CI checks the file is current | Contract drift fails the build |
+| 41 | 2026-10-25 | View SQL | Versioned `.sql` files that migrations read and never edit | Applied migrations stay immutable |
+| 42 | 2026-10-25 | Export format | CSV by default, Parquet behind an optional `[parquet]` extra | No heavy dependency by default |
+| 43 | 2026-10-25 | Type checking | mypy strict on `src` from phase 2 | Most modules are rewritten there |
+| 44 | 2026-10-25 | Language | English for code, logs and API `detail`; error `code`s mapped to pt-BR in the UI; display data and customer messages stay pt-BR | English portfolio code, pt-BR product |
+| 45 | 2026-10-25 | Column names | English (`trade_name`, `legal_name`, ...); CPF, CNPJ, CNAE keep their names | Consistent schema language |
+| 46 | 2026-10-25 | Read access for employees | Any employee may read any request's detail and history; actions stay limited to the current sector | Staff lose access right after approving a request into another sector otherwise; reads expose no extra privilege |

@@ -1,208 +1,118 @@
-# app/routers/notification.py
+"""A client's notifications. They are created by the workflow, never by clients."""
 
 import logging
 from datetime import datetime
+from typing import Any, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import not_
+from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.orm import Session
 
-from bank_credit.app import models, schemas
-from bank_credit.app.database import get_db
-from bank_credit.app.email import send_notification_email
+from bank_credit.app import schemas
+from bank_credit.app.db import get_db
+from bank_credit.app.deps import get_now
+from bank_credit.app.errors import ApiError
+from bank_credit.app.models import Client, Notification, User
 from bank_credit.app.routers.auth import get_current_active_user
-from bank_credit.app.views import auth as auth_view
 
 logger = logging.getLogger("bank_credit.routers.notification")
 
 router = APIRouter()
 
 
-def get_current_client(
-    current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-) -> models.Client:
+def get_current_client(current_user: User = Depends(get_current_active_user)) -> Client:
     """Notifications belong to a client (clients.id), not to the login user."""
-    client = auth_view.get_client_by_user_id(db, current_user.id)
-    if client is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Apenas clientes têm notificações."
+    if current_user.client is None:
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN, "Only clients have notifications", "customers_only"
         )
-    return client
+    return current_user.client
 
 
-@router.post("/", response_model=schemas.NotificationRead)
-async def create_notification(
-    notification_in: schemas.NotificationCreate,
-    background_tasks: BackgroundTasks,
-    client: models.Client = Depends(get_current_client),
-    db: Session = Depends(get_db),
-):
-    logger.info(
-        f"[POST /notifications] User {client.id} - Creating notification: {notification_in.subject}"
-    )
-    try:
-        notification = models.Notification(
-            client_id=client.id,
-            subject=notification_in.subject,
-            message=notification_in.message,
-            read=False,
-            created_at=datetime.now(),
+def _get_own(db: Session, client: Client, notification_id: int) -> Notification:
+    notification = db.scalar(
+        select(Notification).where(
+            Notification.id == notification_id, Notification.client_id == client.id
         )
-        db.add(notification)
-        db.commit()
-        db.refresh(notification)
-        logger.info(f"Notification {notification.id} created for client {client.id}")
-    except Exception as e:
-        logger.error(f"Error creating notification: {e}")
-        raise
-    # Enviar email em background
-    background_tasks.add_task(
-        send_notification_email,
-        client.user.email,
-        notification.subject,
-        notification.message,
     )
-
+    if notification is None:
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND, "Notification not found", "notification_not_found"
+        )
     return notification
 
 
 @router.get("/", response_model=list[schemas.NotificationRead])
 def get_notifications(
-    client: models.Client = Depends(get_current_client),
+    client: Client = Depends(get_current_client), db: Session = Depends(get_db)
+) -> list[Notification]:
+    query = (
+        select(Notification)
+        .where(Notification.client_id == client.id)
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
+    )
+    return list(db.scalars(query))
+
+
+@router.get("/unread-count")
+def get_unread_notifications_count(
+    client: Client = Depends(get_current_client), db: Session = Depends(get_db)
+) -> dict[str, int]:
+    count = db.scalar(
+        select(func.count())
+        .select_from(Notification)
+        .where(Notification.client_id == client.id, Notification.read_at.is_(None))
+    )
+    return {"count": count or 0}
+
+
+@router.patch("/read-all")
+def mark_all_notifications_as_read(
+    client: Client = Depends(get_current_client),
     db: Session = Depends(get_db),
-):
-    logger.info(f"[GET /notifications] User {client.id}")
-    try:
-        notifications = (
-            db.query(models.Notification)
-            .filter(models.Notification.client_id == client.id)
-            .order_by(models.Notification.created_at.desc())
-            .all()
-        )
-        logger.debug(f"Found {len(notifications)} notifications for user {client.id}")
-        return notifications
-    except Exception as e:
-        logger.error(f"Error fetching notifications: {e}")
-        raise
+    now: datetime = Depends(get_now),
+) -> dict[str, int]:
+    result = cast(
+        "CursorResult[Any]",
+        db.execute(
+            update(Notification)
+            .where(Notification.client_id == client.id, Notification.read_at.is_(None))
+            .values(read_at=now)
+        ),
+    )
+    db.commit()
+    return {"updated": result.rowcount}
 
 
 @router.get("/{notification_id:int}", response_model=schemas.NotificationRead)
 def get_notification(
     notification_id: int,
-    client: models.Client = Depends(get_current_client),
+    client: Client = Depends(get_current_client),
     db: Session = Depends(get_db),
-):
-    logger.info(
-        f"[GET /notifications/{{notification_id}}] User {client.id} - Notification {notification_id}"
-    )
-    notification = (
-        db.query(models.Notification)
-        .filter(
-            models.Notification.id == notification_id,
-            models.Notification.client_id == client.id,
-        )
-        .first()
-    )
-    if not notification:
-        logger.warning(f"Notification {notification_id} not found for user {client.id}")
-        raise HTTPException(status_code=404, detail="Notificação não encontrada")
-    logger.debug(f"Notification found: {notification}")
-    return notification
+) -> Notification:
+    return _get_own(db, client, notification_id)
 
 
-@router.patch("/{notification_id}/read", response_model=schemas.NotificationRead)
+@router.patch("/{notification_id:int}/read", response_model=schemas.NotificationRead)
 def mark_notification_as_read(
     notification_id: int,
-    client: models.Client = Depends(get_current_client),
+    client: Client = Depends(get_current_client),
     db: Session = Depends(get_db),
-):
-    logger.info(
-        f"[PATCH /notifications/{{notification_id}}/read] User {client.id} - Mark as read {notification_id}"
-    )
-    notification = (
-        db.query(models.Notification)
-        .filter(
-            models.Notification.id == notification_id,
-            models.Notification.client_id == client.id,
-        )
-        .first()
-    )
-    if not notification:
-        logger.warning(f"Notification {notification_id} not found for user {client.id}")
-        raise HTTPException(status_code=404, detail="Notificação não encontrada")
-    notification.read = True
-    db.commit()
-    db.refresh(notification)
-    logger.debug(f"Notification {notification_id} marked as read")
-    return notification
-
-
-@router.patch("/read-all", response_model=dict)
-def mark_all_notifications_as_read(
-    client: models.Client = Depends(get_current_client),
-    db: Session = Depends(get_db),
-):
-    logger.info(f"[PATCH /notifications/read-all] User {client.id} - Mark all as read")
-    try:
-        updated = (
-            db.query(models.Notification)
-            .filter(
-                models.Notification.client_id == client.id,
-                not_(models.Notification.read),
-            )
-            .update({"read": True}, synchronize_session="fetch")
-        )
+    now: datetime = Depends(get_now),
+) -> Notification:
+    notification = _get_own(db, client, notification_id)
+    if notification.read_at is None:
+        notification.read_at = now
         db.commit()
-        logger.debug(f"Marked {updated} notifications as read for user {client.id}")
-        return {"message": "Todas as notificações foram marcadas como lidas"}
-    except Exception as e:
-        logger.error(f"Error marking all notifications as read: {e}")
-        raise
-
-
-@router.get("/unread-count")
-def get_unread_notifications_count(
-    client: models.Client = Depends(get_current_client),
-    db: Session = Depends(get_db),
-):
-    logger.info(f"[GET /notifications/unread-count] User {client.id}")
-    try:
-        count = (
-            db.query(models.Notification)
-            .filter(
-                models.Notification.client_id == client.id,
-                not_(models.Notification.read),
-            )
-            .count()
-        )
-        logger.debug(f"User {client.id} has {count} unread notifications")
-        return {"count": count}
-    except Exception as e:
-        logger.error(f"Error getting unread notifications count: {e}")
-        raise
+    return notification
 
 
 @router.delete("/{notification_id:int}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_notification(
     notification_id: int,
-    client: models.Client = Depends(get_current_client),
+    client: Client = Depends(get_current_client),
     db: Session = Depends(get_db),
-):
-    logger.info(
-        f"[DELETE /notifications/{{notification_id}}] User {client.id} - Delete notification {notification_id}"
-    )
-    notification = (
-        db.query(models.Notification)
-        .filter(
-            models.Notification.id == notification_id,
-            models.Notification.client_id == client.id,
-        )
-        .first()
-    )
-    if not notification:
-        logger.warning(f"Notification {notification_id} not found for user {client.id}")
-        raise HTTPException(status_code=404, detail="Notificação não encontrada")
-    db.delete(notification)
+) -> Response:
+    db.delete(_get_own(db, client, notification_id))
     db.commit()
-    logger.info(f"Notification {notification_id} deleted for user {client.id}")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
