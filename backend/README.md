@@ -5,7 +5,8 @@ between approval stages, SLAs and notifications.
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 when needed).
+Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 when needed) and a Postgres
+database that you can write to.
 
 ```bash
 uv sync
@@ -13,24 +14,37 @@ cp .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"   # paste the value into SECRET_KEY
 ```
 
-The API refuses to start without `SECRET_KEY` and `DATABASE_URL`. Every setting is documented in
-`.env.example`.
+Set `DATABASE_URL` in `.env` to your Postgres. The API refuses to start without `SECRET_KEY` and
+`DATABASE_URL`; the migrations and the jobs need only `DATABASE_URL`. Every setting is documented
+in `.env.example`.
 
 ## Run
 
 ```bash
-uv run populate --seed 42   # optional: synthetic demo data (Faker)
-uv run serve --reload       # http://127.0.0.1:8000, docs at /docs
+uv run alembic upgrade head            # create the schema
+uv run bank-credit seed                # reference data and demo users
+uv run bank-credit simulate --seed 42  # optional: synthetic request history
+uv run bank-credit serve --reload      # http://127.0.0.1:8000, docs at /docs
 ```
 
-Demo users created by `populate` use the password `123`: `admin@admin.com`, `1@funcionario.com`
-(staff) and `1@cliente.com` (customer).
+`seed` and `simulate` are safe to re-run. `simulate` accepts `--as-of`, `--days`, `--clients` and
+`--reset`. `bank-credit sla-check` records the SLA breaches and expiries that came due; run it on
+a schedule.
+
+Demo logins use the password `demo1234` (or `DEMO_PASSWORD`). They exist for local use only:
+
+- `admin@example.com`
+- `manager.retail_center@example.com`, `staff1.retail_center@example.com` (also
+  `mid_large_center` and `disbursement_center`)
+- `customer1@example.com` (a client)
 
 ## Test and lint
 
 ```bash
 uv run pytest
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/bank_credit_test \
+  uv run pytest -m integration   # needs a throwaway Postgres: its public schema is dropped
 ```
 
 ## Main endpoints

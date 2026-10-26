@@ -34,9 +34,14 @@ Python · FastAPI · SQLAlchemy · pytest · uv · ruff · TypeScript · React �
 # backend
 cd backend
 uv sync
-cp .env.example .env         # set SECRET_KEY (see backend/README.md)
-uv run populate --seed 42    # optional synthetic demo data
-uv run serve
+cp .env.example .env                    # set SECRET_KEY and DATABASE_URL (see backend/README.md)
+uv run alembic upgrade head             # create the schema in Postgres
+uv run bank-credit seed                 # reference data and demo users
+uv run bank-credit simulate --seed 42   # optional synthetic request history
+uv run bank-credit serve                # http://127.0.0.1:8000
+
+# demo logins, password demo1234: admin@example.com, staff1.retail_center@example.com,
+# customer1@example.com
 
 # frontend
 cd ../frontend
