@@ -1,34 +1,19 @@
-# app/main.py
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from bank_credit.app.config import get_settings
-from bank_credit.app.database import init_db
+from bank_credit.app.errors import register_error_handlers
 from bank_credit.app.routers.auth import router as auth_router
 from bank_credit.app.routers.credit_request import router as credit_router
-from bank_credit.app.routers.graph import router as graph_router
+from bank_credit.app.routers.credit_request import workflow_router
 from bank_credit.app.routers.notification import router as notification_router
-
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Temporary bridge: create missing tables at startup until Alembic owns the schema.
-    init_db()
-    yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        lifespan=lifespan,
-        title="API de Solicitação de Crédito",
+        title="Bank Credit API",
         version="1.0.0",
-        description=(
-            "Simulação de fluxo de solicitação de crédito bancário com checklist, "
-            "roteamento por grafo, SLAs e notificações"
-        ),
+        description="Credit requests with a staged workflow, SLAs and an append-only event log.",
     )
 
     app.add_middleware(
@@ -38,14 +23,15 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    register_error_handlers(app)
 
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(credit_router, prefix="/requests", tags=["credit_requests"])
-    app.include_router(graph_router, prefix="/graph", tags=["process_graph"])
+    app.include_router(workflow_router, tags=["workflow"])
     app.include_router(notification_router, prefix="/notifications", tags=["notifications"])
 
     @app.get("/")
-    def read_root():
-        return {"message": "Bem-vindo à API de Solicitação de Crédito Bancário!"}
+    def read_root() -> dict[str, str]:
+        return {"message": "Bank Credit API"}
 
     return app
