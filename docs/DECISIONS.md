@@ -50,3 +50,4 @@ recommended option; high-impact ones were answered by the owner.
 | 43 | 2026-10-25 | Type checking | mypy strict on `src` from phase 2 | Most modules are rewritten there |
 | 44 | 2026-10-25 | Language | English for code, logs and API `detail`; error `code`s mapped to pt-BR in the UI; display data and customer messages stay pt-BR | English portfolio code, pt-BR product |
 | 45 | 2026-10-25 | Column names | English (`trade_name`, `legal_name`, ...); CPF, CNPJ, CNAE keep their names | Consistent schema language |
+| 46 | 2026-10-25 | Read access for employees | Any employee may read any request's detail and history; actions stay limited to the current sector | Staff lose access right after approving a request into another sector otherwise; reads expose no extra privilege |
