@@ -54,6 +54,9 @@ TEST_DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/bank_credit_
 - `/requests`: credit requests, status changes, routing and history
 - `/graph`: the approval-stage graph
 - `/notifications`: client notifications
+- `/analytics/sla-breach-rate`, `/analytics/time-in-stage`, `/analytics/throughput`: SLA analytics over the `v_*` SQL views (managers and admins; Postgres only)
+
+Export a checked dataset partition with `bank-credit export --dataset request_events|stage_intervals|sla_breach_weekly --format csv|parquet --out data/exports` (Parquet needs `uv sync --extra parquet`).
 
 ## Layout
 
