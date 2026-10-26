@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from bank_credit.app.db import Base
-from bank_credit.app.domain.enums import EventType, JobStatus, RequestStatus
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS, EventType, JobStatus, RequestStatus
 from bank_credit.app.domain.workflow import replay, state_of
 from bank_credit.app.jobs import seed as seed_module
 from bank_credit.app.jobs import simulate as simulate_module
@@ -103,6 +103,12 @@ def test_replay_matches_the_projection_for_every_request(sim):
     assert projection_matches_replay(sim) >= 20
 
 
+def test_simulated_requests_declare_the_required_documents(sim):
+    requests = sim.scalars(select(CreditRequest)).all()
+    assert requests
+    assert all({d.document_type for d in r.documents} == REQUIRED_DOCUMENTS for r in requests)
+
+
 def test_history_has_every_kind_of_outcome(sim):
     types = set(sim.scalars(select(RequestEvent.event_type)))
     assert {EventType.SLA_BREACHED, EventType.RETURNED, EventType.RESUBMITTED} <= types
@@ -172,3 +178,50 @@ def test_sla_check_catches_up_then_writes_nothing():
     )
     written = [r.rows_written for r in runs]
     assert written[0] == 0 and written[1] > 0 and written[2] == 0
+
+
+def test_breach_share_of_closed_stage_intervals_is_realistic(sim):
+    closed = breached = 0
+    events = sim.execute(
+        select(RequestEvent.request_id, RequestEvent.event_type).order_by(
+            RequestEvent.request_id, RequestEvent.seq
+        )
+    )
+    last_request, entered, flagged = None, False, False
+    for request_id, kind in events:
+        if request_id != last_request:
+            last_request, entered, flagged = request_id, False, False
+        if entered and kind in (
+            EventType.STAGE_APPROVED,
+            EventType.RETURNED,
+            EventType.REJECTED,
+        ):
+            closed += 1
+            breached += flagged
+        if kind in (EventType.SUBMITTED, EventType.RESUBMITTED, EventType.STAGE_APPROVED):
+            entered, flagged = True, False
+        elif kind is EventType.SLA_BREACHED:
+            flagged = True
+    assert closed > 100
+    assert 0.05 <= breached / closed <= 0.35
+
+
+def test_every_demo_customer_has_a_mix_of_requests(sim):
+    for i in range(1, seed_module.DEMO_CUSTOMERS + 1):
+        user = sim.scalar(select(User).where(User.email == f"customer{i}@example.com"))
+        requests = sim.scalars(
+            select(CreditRequest).where(CreditRequest.client_id == user.client.id)
+        ).all()
+        statuses = {r.status for r in requests}
+        assert len(requests) == 4
+        assert {RequestStatus.IN_REVIEW, RequestStatus.RETURNED} <= statuses
+        assert statuses & {RequestStatus.APPROVED, RequestStatus.REJECTED}
+
+
+def test_reset_keeps_demo_users_and_rebuilds_their_requests():
+    db = simulated_db()
+    simulate(db, **SMALL, reset=True)
+    demo = select(func.count()).select_from(User).where(User.email.like("customer_@example.com"))
+    assert db.scalar(demo) == seed_module.DEMO_CUSTOMERS
+    demo_requests = select(func.count()).select_from(CreditRequest).join(Client).join(User)
+    assert db.scalar(demo_requests.where(User.email.like("customer_@example.com"))) == 12

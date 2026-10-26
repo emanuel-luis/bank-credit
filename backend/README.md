@@ -29,7 +29,7 @@ uv run bank-credit serve --reload      # http://127.0.0.1:8000, docs at /docs
 
 `seed` and `simulate` are safe to re-run. `simulate` accepts `--as-of`, `--days`, `--clients` and
 `--reset`. `bank-credit sla-check` records the SLA breaches and expiries that came due; run it on
-a schedule.
+a schedule. `bank-credit openapi [--out PATH]` prints the OpenAPI JSON and needs no environment.
 
 Demo logins use the password `demo1234` (or `DEMO_PASSWORD`). They exist for local use only:
 

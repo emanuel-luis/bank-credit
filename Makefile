@@ -3,10 +3,11 @@
 #   docker compose down -v                   (make down)
 #   docker compose logs -f                   (make logs)
 #   docker compose run --rm api bank-credit sla-check   (make sla-check)
+#   python3 scripts/smoke.py                  (make smoke; needs the stack up)
 #   cd backend && uv sync && uv run pytest   (make install, make test)
 
 .DEFAULT_GOAL := help
-.PHONY: help env install lint test test-integration up demo down logs sla-check
+.PHONY: help env install lint test test-integration up demo down logs sla-check smoke
 
 COMPOSE := docker compose
 
@@ -15,7 +16,7 @@ help: ## Show this help
 
 env: ## Create .env from .env.example with generated secrets (if missing)
 	@test -f .env || { \
-	  gen() { openssl rand -hex 32 2>/dev/null || python -c "import secrets; print(secrets.token_hex(32))"; }; \
+	  gen() { openssl rand -hex 32 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(32))"; }; \
 	  sk=$$(gen); pw=$$(gen); \
 	  sed -e "s/^SECRET_KEY=.*/SECRET_KEY=$$sk/" -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$$pw/" .env.example > .env; \
 	  echo "Created .env with generated SECRET_KEY and POSTGRES_PASSWORD."; \
@@ -59,3 +60,6 @@ logs: ## Follow the logs of all services
 
 sla-check: ## Run the SLA check job once in the api image
 	$(COMPOSE) run --rm api bank-credit sla-check
+
+smoke: ## Register a customer and approve a request through all stages (stack must be up)
+	@set -a; [ ! -f .env ] || . ./.env; set +a; python3 scripts/smoke.py

@@ -7,6 +7,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from bank_credit.app.domain import workflow
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS
 from bank_credit.app.models import RequestEvent, User
 
 pytestmark = pytest.mark.integration
@@ -28,6 +29,7 @@ def engine_with_event(seeded_engine: Engine) -> Engine:
             purpose="Working capital",
             term_days=30,
             deliver_date=NOW.date(),
+            documents=REQUIRED_DOCUMENTS,
         )
         db.commit()
     return seeded_engine

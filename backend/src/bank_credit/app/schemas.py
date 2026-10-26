@@ -4,10 +4,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
 from bank_credit.app.domain.documents import Cnpj
-from bank_credit.app.domain.enums import Action, EventType, RequestStatus, UserRole
+from bank_credit.app.domain.enums import Action, DocumentType, EventType, RequestStatus, UserRole
 
 Money = Annotated[Decimal, Field(max_digits=14, decimal_places=2, gt=0)]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -135,6 +135,14 @@ class CreditRequestCreate(Input):
     purpose: Annotated[Text, Field(max_length=500)]
     term_days: Annotated[int, Field(gt=0)]
     deliver_date: date
+    documents: list[DocumentType]
+
+    @field_validator("documents")
+    @classmethod
+    def _no_duplicates(cls, value: list[DocumentType]) -> list[DocumentType]:
+        if len(set(value)) != len(value):
+            raise ValueError("documents must not contain duplicates")
+        return value
 
 
 class TransitionIn(Input):
@@ -167,7 +175,13 @@ class RequestSummary(Output):
     client: ClientSummary
 
 
+class DocumentRead(Output):
+    document_type: DocumentType
+    declared_at: datetime
+
+
 class RequestDetail(RequestSummary):
+    documents: list[DocumentRead]
     estimated_completion_at: datetime | None
     last_seq: int
     allowed_actions: list[Action]
