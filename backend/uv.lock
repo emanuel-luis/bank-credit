@@ -208,6 +208,7 @@ parquet = [
 dev = [
     { name = "httpx" },
     { name = "mypy" },
+    { name = "pyarrow" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-timeout" },
@@ -236,6 +237,7 @@ provides-extras = ["parquet"]
 dev = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "mypy", specifier = ">=2.4.0" },
+    { name = "pyarrow", specifier = ">=20" },
     { name = "pytest", specifier = ">=9.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-timeout", specifier = ">=2.4" },

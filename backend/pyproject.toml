@@ -33,6 +33,7 @@ module-name = "bank_credit"
 dev = [
     "httpx>=0.28",
     "mypy>=2.4.0",
+    "pyarrow>=20",  # so the Parquet export tests run; the image gets it via the [parquet] extra
     "pytest>=9.1",
     "pytest-cov>=7.1",
     "pytest-timeout>=2.4",
@@ -65,7 +66,7 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["pyarrow", "pyarrow.*"]
-ignore_missing_imports = true  # the optional [parquet] extra is not installed in the dev group
+ignore_missing_imports = true  # pyarrow ships no type information
 
 [tool.pydantic-mypy]
 init_typed = true
