@@ -173,6 +173,7 @@ def apply_event(state: RequestState | None, event: RequestEvent) -> RequestState
         raise ValueError("the first event of a request must be SUBMITTED")
     # Events that put the request (back) in a stage start a new SLA clock.
     entering = event.to_status is _IN_REVIEW and event.event_type is not EventType.SLA_BREACHED
+    breached_at: datetime | None
     if event.event_type is EventType.SLA_BREACHED:
         breached_at = event.occurred_at
     else:

@@ -35,9 +35,9 @@ class Settings(DatabaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]  # required fields come from the environment
+    return Settings()
 
 
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
-    return DatabaseSettings()  # type: ignore[call-arg]  # required fields come from the environment
+    return DatabaseSettings()

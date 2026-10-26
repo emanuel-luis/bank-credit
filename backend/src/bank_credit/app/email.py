@@ -1,8 +1,8 @@
 import logging
 from functools import lru_cache
 
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema
-from pydantic import EmailStr
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from pydantic import EmailStr, NameEmail, validate_email
 
 from bank_credit.app.config import get_settings
 
@@ -14,7 +14,7 @@ def get_fastmail() -> FastMail:
     s = get_settings()
     conf = ConnectionConfig(
         MAIL_USERNAME=s.mail_username,
-        MAIL_PASSWORD=s.mail_password.get_secret_value(),
+        MAIL_PASSWORD=s.mail_password,
         MAIL_FROM=s.mail_from,
         MAIL_PORT=s.mail_port,
         MAIL_SERVER=s.mail_server,
@@ -26,7 +26,7 @@ def get_fastmail() -> FastMail:
     return FastMail(conf)
 
 
-async def send_notification_email(email_to: EmailStr, subject: str, body: str):
+async def send_notification_email(email_to: EmailStr, subject: str, body: str) -> None:
     """
     Envia um email de notificação para o usuário (apenas registra no log se MAIL_ENABLED=false)
     """
@@ -34,12 +34,19 @@ async def send_notification_email(email_to: EmailStr, subject: str, body: str):
         logger.info("Email disabled; would send to %s: %s", email_to, subject)
         return
 
-    message = MessageSchema(subject=subject, recipients=[email_to], body=body, subtype="html")
+    message = MessageSchema(
+        subject=subject,
+        recipients=[NameEmail(*validate_email(email_to))],
+        body=body,
+        subtype=MessageType.html,
+    )
 
     await get_fastmail().send_message(message)
 
 
-async def send_credit_request_status_email(email_to: EmailStr, request_id: int, status: str):
+async def send_credit_request_status_email(
+    email_to: EmailStr, request_id: int, status: str
+) -> None:
     """
     Envia um email sobre a atualização do status de uma solicitação de crédito
     """
@@ -58,7 +65,7 @@ async def send_credit_request_status_email(email_to: EmailStr, request_id: int, 
     await send_notification_email(email_to, subject, body)
 
 
-async def send_welcome_email(email_to: EmailStr, username: str):
+async def send_welcome_email(email_to: EmailStr, username: str) -> None:
     """
     Envia um email de boas-vindas para novos usuários
     """

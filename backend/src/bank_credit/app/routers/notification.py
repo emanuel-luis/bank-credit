@@ -2,9 +2,10 @@
 
 import logging
 from datetime import datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import func, select, update
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.orm import Session
 
 from bank_credit.app import schemas
@@ -71,10 +72,13 @@ def mark_all_notifications_as_read(
     db: Session = Depends(get_db),
     now: datetime = Depends(get_now),
 ) -> dict[str, int]:
-    result = db.execute(
-        update(Notification)
-        .where(Notification.client_id == client.id, Notification.read_at.is_(None))
-        .values(read_at=now)
+    result = cast(
+        "CursorResult[Any]",
+        db.execute(
+            update(Notification)
+            .where(Notification.client_id == client.id, Notification.read_at.is_(None))
+            .values(read_at=now)
+        ),
     )
     db.commit()
     return {"updated": result.rowcount}

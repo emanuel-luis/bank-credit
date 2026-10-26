@@ -3,10 +3,11 @@
 import logging
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import Select, func, select
+from sqlalchemy.engine import ScalarResult
 from sqlalchemy.orm import Session, selectinload
 
 from bank_credit.app import schemas
@@ -134,7 +135,7 @@ def list_requests(
         if allowed is Scope.QUEUE
         else (CreditRequest.submitted_at.desc(), CreditRequest.id.desc())
     )
-    rows = db.scalars(
+    query = (
         filtered.options(
             selectinload(CreditRequest.current_stage),
             selectinload(CreditRequest.current_sector),
@@ -144,6 +145,8 @@ def list_requests(
         .limit(limit)
         .offset(offset)
     )
+    # The SQLAlchemy 2.1 stubs type scalars() of this statement as ScalarResult[tuple[...]].
+    rows = cast("ScalarResult[CreditRequest]", db.scalars(query))
     return schemas.RequestPage(items=[_summary(r, now) for r in rows], total=total)
 
 
