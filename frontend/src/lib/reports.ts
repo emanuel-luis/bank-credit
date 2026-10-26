@@ -46,6 +46,20 @@ export function pivotBreachRate(rows: SlaBreachRateRow[]): { weeks: string[]; se
 /** Weeks present in the rows, newest first. */
 export const weeksOf = (rows: { week_start: string }[]): string[] => sortedUnique(rows.map((r) => r.week_start)).reverse();
 
+/**
+ * Week shown by default: the newest week that has already ended (a full week of exits), so the
+ * chart does not open on the current, half-empty week. Falls back to the newest week.
+ * `weeks` is newest first, as returned by weeksOf; `today` is a YYYY-MM-DD date.
+ */
+export function defaultWeek(weeks: string[], today: string): string {
+  const ended = weeks.find((w) => {
+    const end = new Date(`${w}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + 7);
+    return end.toISOString().slice(0, 10) <= today;
+  });
+  return ended ?? weeks[0] ?? '';
+}
+
 export interface StageBar {
   label: string;
   p50: number;
