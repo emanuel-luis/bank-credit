@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime, formatMoney } from './format';
+import { formatCnpj, formatDate, formatDateTime, formatMoney } from './format';
 
 const nbsp = (s: string) => s.replace(/\u00a0/g, ' ');
 
@@ -21,5 +21,17 @@ describe('format', () => {
   it('formats an ISO timestamp as pt-BR date and time', () => {
     expect(formatDateTime('2026-11-01T12:00:00Z')).toMatch(/^\d{2}\/\d{2}\/\d{4},? \d{2}:\d{2}$/);
     expect(formatDateTime(undefined)).toBe('-');
+  });
+
+  it('formats numeric and alphanumeric CNPJs', () => {
+    expect(formatCnpj('88125205000144')).toBe('88.125.205/0001-44');
+    expect(formatCnpj('12ABC34501DE55')).toBe('12.ABC.345/01DE-55');
+    expect(formatCnpj('12abc34501de55')).toBe('12.ABC.345/01DE-55');
+  });
+
+  it('leaves malformed CNPJs untouched and shows a dash when empty', () => {
+    expect(formatCnpj('123')).toBe('123');
+    expect(formatCnpj('1234567890123A')).toBe('1234567890123A');
+    expect(formatCnpj(null)).toBe('-');
   });
 });
