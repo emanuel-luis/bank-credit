@@ -7,7 +7,7 @@ from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session
 
 from bank_credit.app.domain import workflow
-from bank_credit.app.domain.enums import Action, RequestStatus, UserRole
+from bank_credit.app.domain.enums import REQUIRED_DOCUMENTS, Action, RequestStatus, UserRole
 from bank_credit.app.jobs.simulate import simulate
 from bank_credit.app.models import CreditRequest, Employee, RequestEvent, Sector, User
 
@@ -29,6 +29,7 @@ def _submit(engine: Engine, amount: str, at: datetime = NOW) -> int:
             purpose="Working capital",
             term_days=30,
             deliver_date=at.date(),
+            documents=REQUIRED_DOCUMENTS,
         )
         db.commit()
         return request.id

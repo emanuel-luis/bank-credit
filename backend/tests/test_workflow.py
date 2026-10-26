@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from bank_credit.app.domain import workflow
 from bank_credit.app.domain.enums import (
+    REQUIRED_DOCUMENTS,
     Action,
+    DocumentType,
     EventType,
     JobStatus,
     RequestStatus,
@@ -196,6 +198,7 @@ def test_submit_requires_the_owning_customer(db, customer, other_customer, retai
         "purpose": "x",
         "term_days": 30,
         "deliver_date": (T0 + timedelta(days=5)).date(),
+        "documents": REQUIRED_DOCUMENTS,
     }
     with pytest.raises(workflow.Forbidden):
         workflow.submit_request(db, customer.client, other_customer, T0, **kwargs)
@@ -204,6 +207,14 @@ def test_submit_requires_the_owning_customer(db, customer, other_customer, retai
     with pytest.raises(workflow.InvalidAmount):
         workflow.submit_request(
             db, customer.client, customer, T0, **{**kwargs, "amount": Decimal(0)}
+        )
+    with pytest.raises(workflow.MissingDocuments, match="business_plan"):
+        workflow.submit_request(
+            db,
+            customer.client,
+            customer,
+            T0,
+            **{**kwargs, "documents": REQUIRED_DOCUMENTS - {DocumentType.BUSINESS_PLAN}},
         )
     with pytest.raises(workflow.InvalidDeliverDate):
         workflow.submit_request(

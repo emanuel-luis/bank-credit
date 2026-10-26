@@ -68,6 +68,7 @@ def _detail(
 ) -> schemas.RequestDetail:
     return schemas.RequestDetail(
         **dict(_summary(request, now)),
+        documents=[schemas.DocumentRead.model_validate(d) for d in request.documents],
         estimated_completion_at=workflow.estimated_completion_at(db, request),
         last_seq=request.last_seq,
         allowed_actions=workflow.allowed_actions(request, user, now),
@@ -200,6 +201,7 @@ def create_request(
         purpose=body.purpose,
         term_days=body.term_days,
         deliver_date=body.deliver_date,
+        documents=body.documents,
     )
     db.commit()
     logger.info("Request %s submitted by user %s", request.id, user.id)

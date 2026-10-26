@@ -1,99 +1,39 @@
 import { twMerge } from 'tailwind-merge';
+import type { Status } from '../../api/types';
+import { STATUS_LABELS } from '../../lib/labels';
 
-export type ApplicationStatus =
-  | 'Enviado'
-  | 'Checagem de Documentos'
-  | 'Em análise'
-  | 'Documentos Pendentes'
-  | 'Pendente'
-  | 'Aprovado'
-  | 'Rejeitado'
+const STATUS_COLORS: Record<Status, string> = {
+  IN_REVIEW: 'bg-amber-100 text-amber-700',
+  RETURNED: 'bg-orange-100 text-orange-700',
+  APPROVED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-100 text-gray-700',
+  EXPIRED: 'bg-gray-100 text-gray-700',
+};
 
 interface ApplicationStatusBadgeProps {
-  status: ApplicationStatus | string;
+  status: Status;
   className?: string;
 }
 
-const statusConfig: Record<string, { label: string; bgColor: string; textColor: string }> = {
-  draft: {
-    label: 'Draft',
-    bgColor: 'bg-gray-100',
-    textColor: 'text-gray-700',
-  },
-  submitted: {
-    label: 'Submitted',
-    bgColor: 'bg-blue-100',
-    textColor: 'text-blue-700',
-  },
-  document_check: {
-    label: 'Document Check',
-    bgColor: 'bg-purple-100',
-    textColor: 'text-purple-700',
-  },
-  under_review: {
-    label: 'Under Review',
-    bgColor: 'bg-amber-100',
-    textColor: 'text-amber-700',
-  },
-  pending_documents: {
-    label: 'Pending Documents',
-    bgColor: 'bg-orange-100',
-    textColor: 'text-orange-700',
-  },
-  approved: {
-    label: 'Approved',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-700',
-  },
-  rejected: {
-    label: 'Rejected',
-    bgColor: 'bg-red-100',
-    textColor: 'text-red-700',
-  },
-  escalated: {
-    label: 'Escalated',
-    bgColor: 'bg-yellow-100',
-    textColor: 'text-yellow-700',
-  },
-  // Suporte para status em caixa alta vindos do backend
-  PENDING: {
-    label: 'Pendente',
-    bgColor: 'bg-yellow-100',
-    textColor: 'text-yellow-700',
-  },
-  APPROVED: {
-    label: 'Aprovado',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-700',
-  },
-  REJECTED: {
-    label: 'Rejeitado',
-    bgColor: 'bg-red-100',
-    textColor: 'text-red-700',
-  },
-};
-
-export default function ApplicationStatusBadge({
-  status,
-  className,
-}: ApplicationStatusBadgeProps) {
-  // Tenta encontrar o status exato, depois tenta em caixa baixa, depois caixa alta, depois fallback para 'PENDING'
-  const config =
-    statusConfig[status] ||
-    statusConfig[String(status).toLowerCase()] ||
-    statusConfig[String(status).toUpperCase()] ||
-    statusConfig['PENDING'];
-
+export default function ApplicationStatusBadge({ status, className }: ApplicationStatusBadgeProps) {
   return (
     <span
       className={twMerge(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-        config.bgColor,
-        config.textColor,
+        STATUS_COLORS[status],
         className
       )}
     >
-      {config.label}
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+export function OverdueBadge() {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+      Atrasada
     </span>
   );
 }

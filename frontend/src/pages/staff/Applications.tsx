@@ -1,154 +1,80 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
-import ApplicationCard from '../../components/loan/ApplicationCard';
-import Button from '../../components/ui/Button';
-import { useMockApplication } from '../../context/mockdata';
-import { getCentral } from '../customer/NewApplication';
-import type { Application, ApiApplication } from '../../types';
+import Pagination from '../../components/loan/Pagination';
+import RequestTable from '../../components/loan/RequestTable';
+import { useQueueScope } from '../../hooks/useQueueScope';
+import { useRequests, useWorkflow } from '../../hooks/useRequests';
+import type { Status } from '../../api/types';
+import { errorMessage } from '../../lib/errors';
+import { STATUSES, STATUS_LABELS } from '../../lib/labels';
 
-const PAGE_SIZE = 6;
+const LIMIT = 15;
+const selectClass = 'rounded-md border border-gray-300 px-3 py-2 text-sm';
 
-export default function Applications() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const navigate = useNavigate();
-  const { mockData } = useMockApplication();
-
-  // Estados para contagem dinâmica
-  const [total, setTotal] = useState(0);
-  const [pendentes, setPendentes] = useState(0);
-  const [aprovadas, setAprovadas] = useState(0);
-  const [rejeitadas, setRejeitadas] = useState(0);
-
-  useEffect(() => {
-    const fetchApplications = async () => {
-      setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://127.0.0.1:8000/requests/all', {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) {
-        setApplications([]);
-        setTotal(0);
-        setPendentes(0);
-        setAprovadas(0);
-        setRejeitadas(0);
-        setLoading(false);
-        return;
-      }
-      const data = await response.json();
-
-      // Sempre prioriza status e campos do mockData
-      const enriched = (data as ApiApplication[]).map((app) => ({
-        ...app,
-        ...(mockData[app.id] || {}),
-        status: mockData[app.id]?.status || app.status,
-      }));
-
-      setApplications(enriched);
-
-      // Contagens dinâmicas
-      setTotal(enriched.length);
-      setPendentes(enriched.filter((a) => a.status === 'PENDING').length);
-      setAprovadas(enriched.filter((a) => a.status === 'APPROVED').length);
-      setRejeitadas(enriched.filter((a) => a.status === 'REJECTED').length);
-
-      setLoading(false);
-    };
-    fetchApplications();
-  }, [mockData]);
-
-  // Paginação
-  const totalPages = Math.ceil(applications.length / PAGE_SIZE);
-  const paginatedApps = applications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+export default function StaffApplications() {
+  const { scope, basePath } = useQueueScope();
+  const workflow = useWorkflow();
+  const [stage, setStage] = useState('');
+  const [overdue, setOverdue] = useState(false);
+  const [status, setStatus] = useState<Status | ''>('');
+  const [offset, setOffset] = useState(0);
+  const { data, isError, error } = useRequests({
+    scope,
+    stage: stage || undefined,
+    overdue: overdue || undefined,
+    // The sector queue is always the open work; only admin can browse other statuses.
+    status: scope === 'all' ? status || undefined : undefined,
+    limit: LIMIT,
+    offset,
+  });
+  const reset = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setOffset(0);
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Solicitações de Empréstimo</h1>
+      <h1 className="text-2xl font-bold text-gray-900">{scope === 'all' ? 'Solicitações' : 'Fila do setor'}</h1>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="text-sm text-gray-700">
+          Etapa{' '}
+          <select value={stage} onChange={(e) => reset(setStage)(e.target.value)} className={selectClass}>
+            <option value="">Todas</option>
+            {workflow.data?.stages.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {scope === 'all' && (
+          <label className="text-sm text-gray-700">
+            Status{' '}
+            <select value={status} onChange={(e) => reset(setStatus)(e.target.value as Status | '')} className={selectClass}>
+              <option value="">Todos</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={overdue} onChange={(e) => reset(setOverdue)(e.target.checked)} />
+          Somente atrasadas
+        </label>
       </div>
 
-      {/* Cards de contagem */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-2">
-        <div className="bg-white rounded shadow p-4 flex flex-col items-center">
-          <span className="text-sm text-gray-500">Total</span>
-          <span className="text-2xl font-bold">{total}</span>
-        </div>
-        <div className="bg-yellow-50 rounded shadow p-4 flex flex-col items-center">
-          <span className="text-sm text-yellow-700">Pendentes</span>
-          <span className="text-2xl font-bold text-yellow-700">{pendentes}</span>
-        </div>
-        <div className="bg-green-50 rounded shadow p-4 flex flex-col items-center">
-          <span className="text-sm text-green-700">Aprovadas</span>
-          <span className="text-2xl font-bold text-green-700">{aprovadas}</span>
-        </div>
-        <div className="bg-red-50 rounded shadow p-4 flex flex-col items-center">
-          <span className="text-sm text-red-700">Rejeitadas</span>
-          <span className="text-2xl font-bold text-red-700">{rejeitadas}</span>
-        </div>
-      </div>
-
-      <Card className="overflow-hidden">
-        <div className="p-6">
-          <div className="space-y-4">
-            {loading ? (
-              <ApplicationCard
-                id="placeholder"
-                title="Carregando..."
-                status="pending"
-                amount={0}
-                department="Carregando..."
-                submittedAt={new Date()}
-                onViewDetails={() => {}}
-                central="Carregando..."
-              />
-            ) : paginatedApps.length === 0 ? (
-              <div className="text-center text-gray-500 py-10">Nenhuma solicitação encontrada.</div>
-            ) : (
-              paginatedApps.map((application) => (
-                <ApplicationCard
-                  key={application.id}
-                  {...application}
-                  status={application.status}
-                  companyName={(application.client?.nome_fantasia + application.client?.razao_social) || '-'}
-                  purpose={application.purpose}
-                  submittedAt={application.created_at}
-                  central={getCentral(application.amount) || '-'}
-                  onViewDetails={(id) => navigate(`/staff/applications/${id}`)}
-                />
-              ))
-            )}
-          </div>
-          {/* Paginação */}
-          {!loading && totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Anterior
-              </Button>
-              <span className="mx-2 text-sm text-gray-700">
-                Página {page} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Próxima
-              </Button>
-            </div>
-          )}
-        </div>
+      <Card>
+        {isError && <p className="p-6 text-sm text-red-600">{errorMessage(error)}</p>}
+        {data && (
+          <>
+            <RequestTable items={data.items} basePath={basePath} showClient />
+            <Pagination offset={offset} limit={LIMIT} total={data.total} onChange={setOffset} />
+          </>
+        )}
       </Card>
     </div>
   );

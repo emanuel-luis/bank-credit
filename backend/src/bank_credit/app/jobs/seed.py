@@ -19,11 +19,11 @@ DEMO_CUSTOMERS = 3
 ADMIN_EMAIL = "admin@example.com"
 
 _CNAES = (
-    ("4711-3/02", "Retail trade in supermarkets and hypermarkets"),
-    ("4930-2/01", "Road freight transport"),
-    ("6201-5/01", "Custom software development"),
-    ("1091-1/02", "Bakery and confectionery manufacturing"),
-    ("4120-4/00", "Building construction"),
+    ("4711-3/02", "Comércio varejista de supermercados e hipermercados"),
+    ("4930-2/01", "Transporte rodoviário de carga"),
+    ("6201-5/01", "Desenvolvimento de software sob encomenda"),
+    ("1091-1/02", "Fabricação de produtos de panificação e confeitaria"),
+    ("4120-4/00", "Construção de edifícios"),
 )
 
 
