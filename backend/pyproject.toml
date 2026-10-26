@@ -29,6 +29,7 @@ module-name = "bank_credit"
 [dependency-groups]
 dev = [
     "httpx>=0.28",
+    "mypy>=2.4.0",
     "pytest>=9.1",
     "pytest-cov>=7.1",
     "pytest-timeout>=2.4",
@@ -53,3 +54,12 @@ addopts = "-ra --strict-markers --strict-config -m 'not integration'"
 markers = ["integration: needs a real Postgres (TEST_DATABASE_URL); excluded by default"]
 testpaths = ["tests"]
 timeout = 60
+
+[tool.mypy]
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_typed = true
+init_forbid_extra = true
