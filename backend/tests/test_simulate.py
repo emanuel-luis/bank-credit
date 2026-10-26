@@ -178,3 +178,50 @@ def test_sla_check_catches_up_then_writes_nothing():
     )
     written = [r.rows_written for r in runs]
     assert written[0] == 0 and written[1] > 0 and written[2] == 0
+
+
+def test_breach_share_of_closed_stage_intervals_is_realistic(sim):
+    closed = breached = 0
+    events = sim.execute(
+        select(RequestEvent.request_id, RequestEvent.event_type).order_by(
+            RequestEvent.request_id, RequestEvent.seq
+        )
+    )
+    last_request, entered, flagged = None, False, False
+    for request_id, kind in events:
+        if request_id != last_request:
+            last_request, entered, flagged = request_id, False, False
+        if entered and kind in (
+            EventType.STAGE_APPROVED,
+            EventType.RETURNED,
+            EventType.REJECTED,
+        ):
+            closed += 1
+            breached += flagged
+        if kind in (EventType.SUBMITTED, EventType.RESUBMITTED, EventType.STAGE_APPROVED):
+            entered, flagged = True, False
+        elif kind is EventType.SLA_BREACHED:
+            flagged = True
+    assert closed > 100
+    assert 0.05 <= breached / closed <= 0.35
+
+
+def test_every_demo_customer_has_a_mix_of_requests(sim):
+    for i in range(1, seed_module.DEMO_CUSTOMERS + 1):
+        user = sim.scalar(select(User).where(User.email == f"customer{i}@example.com"))
+        requests = sim.scalars(
+            select(CreditRequest).where(CreditRequest.client_id == user.client.id)
+        ).all()
+        statuses = {r.status for r in requests}
+        assert len(requests) == 4
+        assert {RequestStatus.IN_REVIEW, RequestStatus.RETURNED} <= statuses
+        assert statuses & {RequestStatus.APPROVED, RequestStatus.REJECTED}
+
+
+def test_reset_keeps_demo_users_and_rebuilds_their_requests():
+    db = simulated_db()
+    simulate(db, **SMALL, reset=True)
+    demo = select(func.count()).select_from(User).where(User.email.like("customer_@example.com"))
+    assert db.scalar(demo) == seed_module.DEMO_CUSTOMERS
+    demo_requests = select(func.count()).select_from(CreditRequest).join(Client).join(User)
+    assert db.scalar(demo_requests.where(User.email.like("customer_@example.com"))) == 12

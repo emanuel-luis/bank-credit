@@ -27,7 +27,7 @@ from bank_credit.app.domain.enums import (
 )
 from bank_credit.app.domain.reference import BAND_LIMIT, ensure_reference_data
 from bank_credit.app.jobs.runs import job_run
-from bank_credit.app.jobs.seed import new_customer, new_faker
+from bank_credit.app.jobs.seed import DEMO_CUSTOMERS, new_customer, new_faker
 from bank_credit.app.models import (
     Client,
     CreditRequest,
@@ -50,16 +50,36 @@ APPROVE_UNTIL, RETURN_UNTIL, REJECT_UNTIL = 0.85, 0.93, 0.98
 RESUBMIT_PROBABILITY = 0.85
 RESUBMIT_MEDIAN_HOURS = 36.0
 
+# Handling time per stage: right-skewed, median 0.6x sla_hours, so about 18% of stages breach.
+HANDLING_MEDIAN = 0.6
+HANDLING_SIGMA = 0.55
+HANDLING_MIN, HANDLING_MAX = 0.1, 3.0  # clamp, in multiples of sla_hours
+
+# Display data is pt-BR (decision 44).
 PURPOSES = (
-    "Working capital",
-    "Equipment purchase",
-    "Fleet renewal",
-    "Inventory financing",
-    "Facility expansion",
-    "Receivables advance",
+    "Capital de giro",
+    "Compra de equipamentos",
+    "Renovação de frota",
+    "Financiamento de estoque",
+    "Expansão de instalações",
+    "Antecipação de recebíveis",
+    "Refinanciamento de dívidas",
 )
-RETURN_REASONS = ("Missing documents", "Inconsistent financial statements", "Update the contract")
-REJECT_REASONS = ("Credit policy", "Insufficient revenue", "Excessive leverage")
+RETURN_REASONS = (
+    "Documentos ausentes",
+    "Demonstrações financeiras inconsistentes",
+    "Atualizar o contrato",
+)
+REJECT_REASONS = ("Política de crédito", "Faturamento insuficiente", "Alavancagem excessiva")
+
+# What each demo customer's requests look like at as_of: (approvals before the end, final action,
+# submitted this fraction of `days` ago). Open and returned ones are recent, so they have not expired.
+DEMO_SCRIPTS: tuple[tuple[int, Action | None, tuple[float, float]], ...] = (
+    (5, None, (0.4, 0.9)),  # APPROVED
+    (2, Action.REJECT, (0.4, 0.9)),  # REJECTED
+    (1, Action.RETURN, (0.1, 0.25)),  # RETURNED, waiting for the customer
+    (1, None, (0.02, 0.06)),  # IN_REVIEW
+)
 
 
 def default_as_of() -> datetime:
@@ -74,7 +94,7 @@ def _count_rows(db: Session) -> int:
 
 
 def reset_data(db: Session) -> None:
-    """Remove requests, events, notifications and the synthetic clients. Keeps users and runs."""
+    """Remove requests, events, notifications and the synthetic clients. Keeps seed users and runs."""
     if db.get_bind().dialect.name == "postgresql":
         db.execute(
             text(
@@ -96,6 +116,11 @@ def _amount(rng: random.Random) -> Decimal:
     mu = math.log(float(BAND_LIMIT)) - RETAIL_SHARE_Z * SIGMA
     value = min(max(rng.lognormvariate(mu, SIGMA), 5_000.0), 500_000_000.0)
     return Decimal(f"{value:.2f}")
+
+
+def _handling_hours(rng: random.Random, sla_hours: int) -> float:
+    value = rng.lognormvariate(math.log(HANDLING_MEDIAN * sla_hours), HANDLING_SIGMA)
+    return min(max(value, HANDLING_MIN * sla_hours), HANDLING_MAX * sla_hours)
 
 
 def _hours(value: float) -> timedelta:
@@ -159,7 +184,7 @@ def _drive(
             action, actor = Action.RESUBMIT, owner
         else:
             route = workflow.resolve_route(db, request.current_stage, request.amount)
-            at = request.stage_entered_at + _hours(rng.uniform(0.3, 2.0) * route.sla_hours)
+            at = request.stage_entered_at + _hours(_handling_hours(rng, route.sla_hours))
             roll = rng.random()
             actor = rng.choice(staff[request.current_sector_id])
             if roll < APPROVE_UNTIL:
@@ -177,6 +202,62 @@ def _drive(
             break
         workflow.transition(db, request, action, actor, at, reason, run.run_id)
     workflow.apply_due_system_events(db, request, as_of, run.run_id)
+
+
+def _demo_customers(db: Session) -> list[User]:
+    """The seed's demo customers that have no requests yet, in id order."""
+    emails = [f"customer{i}@example.com" for i in range(1, DEMO_CUSTOMERS + 1)]
+    has_requests = select(CreditRequest.client_id)
+    return list(
+        db.scalars(
+            select(User)
+            .join(Client)
+            .where(User.email.in_(emails), Client.id.not_in(has_requests))
+            .order_by(User.id)
+        )
+    )
+
+
+def _demo_history(
+    db: Session,
+    customer: User,
+    staff: dict[int, list[User]],
+    seed: int,
+    as_of: datetime,
+    days: int,
+    run: JobRun,
+) -> int:
+    """Give one demo customer a fixed mix of requests: approved, rejected, returned, in review."""
+    assert customer.client is not None
+    rng = random.Random(f"{seed}:demo:{customer.email}")  # str seeds are stable across runs
+    for approvals, final, (near, far) in DEMO_SCRIPTS:
+        at = as_of - timedelta(days=days * rng.uniform(near, far))
+        request = workflow.submit_request(
+            db,
+            customer.client,
+            customer,
+            at,
+            amount=_amount(rng),
+            purpose=rng.choice(PURPOSES),
+            term_days=rng.choice((30, 60, 90, 180, 360)),
+            deliver_date=(at + timedelta(days=rng.randint(15, 90))).date(),
+            documents=REQUIRED_DOCUMENTS,
+        )
+        actions = [(Action.APPROVE, None)] * approvals
+        if final is not None:
+            reasons = RETURN_REASONS if final is Action.RETURN else REJECT_REASONS
+            actions.append((final, rng.choice(reasons)))
+        for action, reason in actions:
+            route = workflow.resolve_route(db, request.current_stage, request.amount)
+            step_at = request.stage_entered_at + _hours(_handling_hours(rng, route.sla_hours))
+            step_at = min(step_at, as_of)
+            actor = rng.choice(staff[request.current_sector_id])
+            due = workflow.apply_due_system_events(db, request, step_at, run.run_id)
+            if any(e.event_type is EventType.EXPIRED for e in due):
+                break
+            workflow.transition(db, request, action, actor, step_at, reason, run.run_id)
+        workflow.apply_due_system_events(db, request, as_of, run.run_id)
+    return len(DEMO_SCRIPTS)
 
 
 def simulate(
@@ -228,6 +309,8 @@ def simulate(
                 )
                 _drive(db, request, customer, staff, rng, as_of, run)
                 requests += 1
+        for customer in _demo_customers(db):
+            requests += _demo_history(db, customer, staff, seed, as_of, days, run)
         run.rows_read = 0
         run.rows_written = _count_rows(db) - before
         logger.info("simulate wrote %d requests and %d rows", requests, run.rows_written)
