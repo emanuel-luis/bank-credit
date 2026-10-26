@@ -6,10 +6,15 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class DatabaseSettings(BaseSettings):
+    """Only what the database needs, so Alembic runs without SECRET_KEY."""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str
+
+
+class Settings(DatabaseSettings):
     secret_key: SecretStr = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
@@ -30,3 +35,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]  # required fields come from the environment
+
+
+@lru_cache
+def get_database_settings() -> DatabaseSettings:
+    return DatabaseSettings()  # type: ignore[call-arg]  # required fields come from the environment
