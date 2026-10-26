@@ -76,11 +76,14 @@ def reset_data(db: Session) -> None:
     """Remove requests, events, notifications and the synthetic clients. Keeps users and runs."""
     if db.get_bind().dialect.name == "postgresql":
         db.execute(
-            text("TRUNCATE request_events, notifications, credit_requests RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE request_events, request_documents, notifications, credit_requests "
+                "RESTART IDENTITY CASCADE"
+            )
         )
     else:
         # Raw SQL: request_events is append-only for the ORM, and a reset is the one exception.
-        for table in ("request_events", "notifications", "credit_requests"):
+        for table in ("request_events", "request_documents", "notifications", "credit_requests"):
             db.execute(text(f"DELETE FROM {table}"))
     synthetic = select(User.id).where(User.email.like("sim-%@example.com"))
     db.execute(delete(Client).where(Client.user_id.in_(synthetic)))

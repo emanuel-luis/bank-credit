@@ -55,3 +55,16 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class DocumentType(StrEnum):
+    """Documents a customer declares when submitting a request. Declared only, never uploaded."""
+
+    COMPANY_REGISTRATION = "company_registration"
+    FINANCIAL_STATEMENTS = "financial_statements"
+    BUSINESS_PLAN = "business_plan"
+    TAX_CLEARANCE = "tax_clearance"
+    COLLATERAL = "collateral"
+
+
+REQUIRED_DOCUMENTS = frozenset(DocumentType) - {DocumentType.COLLATERAL}

@@ -28,7 +28,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from bank_credit.app.db import Base, enum_column
-from bank_credit.app.domain.enums import EventType, JobStatus, RequestStatus, UserRole
+from bank_credit.app.domain.enums import (
+    DocumentType,
+    EventType,
+    JobStatus,
+    RequestStatus,
+    UserRole,
+)
 
 _CLOSED = "('APPROVED','REJECTED','CANCELLED','EXPIRED')"
 
@@ -183,6 +189,25 @@ class CreditRequest(Base):
     client: Mapped[Client] = relationship(back_populates="credit_requests")
     current_stage: Mapped[Stage] = relationship()
     current_sector: Mapped[Sector] = relationship()
+    documents: Mapped[list["RequestDocument"]] = relationship(
+        back_populates="request", order_by="RequestDocument.document_type"
+    )
+
+
+class RequestDocument(Base):
+    """A document the customer declared for a request. No file is stored."""
+
+    __tablename__ = "request_documents"
+
+    request_id: Mapped[int] = mapped_column(
+        ForeignKey("credit_requests.id", ondelete="RESTRICT"), primary_key=True
+    )
+    document_type: Mapped[DocumentType] = mapped_column(
+        enum_column(DocumentType, "document_type", 24), primary_key=True
+    )
+    declared_at: Mapped[datetime]
+
+    request: Mapped[CreditRequest] = relationship(back_populates="documents")
 
 
 class RequestEvent(Base):
