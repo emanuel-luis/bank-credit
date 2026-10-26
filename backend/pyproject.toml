@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-serve = "bank_credit.scripts.serve:main"
+bank-credit = "bank_credit.app.cli:main"
 
 [tool.ruff]
 line-length = 100

@@ -15,7 +15,6 @@ from bank_credit.app.security import get_password_hash
 
 logger = logging.getLogger("bank_credit.jobs.seed")
 
-DEFAULT_DEMO_PASSWORD = "demo1234"
 DEMO_CUSTOMERS = 3
 ADMIN_EMAIL = "admin@example.com"
 
@@ -83,7 +82,7 @@ def _new_employee(
     return user
 
 
-def seed(db: Session, demo_password: str = DEFAULT_DEMO_PASSWORD) -> int:
+def seed(db: Session, demo_password: str) -> int:
     """Create reference data and demo users that do not exist yet. Returns the users created.
 
     Does not commit. Fake values are drawn for every slot in a fixed order, so a user gets

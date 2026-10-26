@@ -7,11 +7,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DatabaseSettings(BaseSettings):
-    """Only what the database needs, so Alembic runs without SECRET_KEY."""
+    """What Alembic and the CLI jobs need, so they run without SECRET_KEY."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str
+    log_level: str = "INFO"
+    # Password of the users created by `bank-credit seed`. Local demo only.
+    demo_password: str = "demo1234"
 
 
 class Settings(DatabaseSettings):
@@ -28,8 +31,6 @@ class Settings(DatabaseSettings):
     mail_password: SecretStr = SecretStr("")
     mail_from: str = ""
     mail_from_name: str = "Sistema de Crédito Bancário"
-
-    log_level: str = "INFO"
 
 
 @lru_cache
