@@ -103,6 +103,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
+      - run: npm test
       - run: npm run build
 
   compose-smoke:
