@@ -1,6 +1,7 @@
+import pytest
 from fastapi import status
 
-from bank_credit.app.models import Client, Employee, User
+from bank_credit.app.models import Client, User
 
 
 def test_register_user(test_app, db, faker):
@@ -27,7 +28,6 @@ def test_register_user(test_app, db, faker):
             "phone": faker.msisdn()[0:11],
             "email": email,
             "password": faker.password(),
-            "groups": [],
         },
     }
     response = test_app.post("/auth/register/client", json=payload)
@@ -65,8 +65,6 @@ def test_register_existing_email(test_app, db, client, faker):
             "phone": client.user.phone,
             "email": client.user.email,
             "password": faker.password(),
-            "is_superuser": False,
-            "groups": [],
         },
     }
     response = test_app.post("/auth/register/client", json=payload)
@@ -138,8 +136,6 @@ def test_register_client_user(test_app, db, faker):
             "phone": faker.msisdn()[0:11],
             "email": email,
             "password": faker.password(),
-            "is_superuser": False,
-            "groups": [],
         },
     }
     response = test_app.post("/auth/register/client", json=payload)
@@ -154,29 +150,34 @@ def test_register_client_user(test_app, db, faker):
     assert db_client.user_id == db_user.id
 
 
-def test_register_employee_user(test_app, db, faker):
-    email = faker.unique.email()
-    matricula = faker.unique.bothify(text="EMP###")
-    cpf = faker.unique.cpf()
+def test_register_employee_is_gone(test_app, faker):
+    response = test_app.post("/auth/register/employee", json={})
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize("extra", [{"role": "admin"}, {"is_superuser": True}, {"groups": ["x"]}])
+def test_register_client_rejects_privilege_fields(test_app, faker, extra):
     payload = {
-        "matricula": matricula,
-        "cpf": cpf,
+        "cnpj": faker.unique.cnpj(),
+        "nome_fantasia": faker.company(),
+        "razao_social": faker.company_suffix(),
+        "cnae_principal": "6201-5/01",
+        "cnae_principal_desc": "Desenvolvimento de programas de computador sob encomenda",
+        "natureza_juridica": "2062",
+        "natureza_juridica_desc": "Sociedade Empresária Limitada",
+        "logradouro": faker.street_name(),
+        "numero": faker.building_number(),
+        "cep": faker.postcode().replace("-", ""),
+        "bairro": faker.bairro(),
+        "municipio": faker.city(),
+        "uf": faker.estado_sigla(),
         "user": {
             "full_name": faker.name(),
             "phone": faker.msisdn()[0:11],
-            "email": email,
+            "email": faker.unique.email(),
             "password": faker.password(),
-            "is_superuser": False,
-            "groups": [],
+            **extra,
         },
     }
-    response = test_app.post("/auth/register/employee", json=payload)
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["user"]["email"] == email
-    assert data["matricula"] == matricula
-    db_user = db.query(User).filter(User.email == email).first()
-    assert db_user is not None
-    db_employee = db.query(Employee).filter(Employee.matricula == matricula).first()
-    assert db_employee is not None
-    assert db_employee.user_id == db_user.id
+    response = test_app.post("/auth/register/client", json=payload)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

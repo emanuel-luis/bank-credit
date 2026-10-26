@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 # --- Authentication models ---
 
@@ -51,9 +51,10 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    # Public registration input: unknown fields (role, is_superuser, groups) are rejected.
+    model_config = ConfigDict(extra="forbid")
+
     password: str
-    is_superuser: bool | None = False
-    groups: list[str] | None = []
 
 
 class ClientBase(BaseModel):
@@ -97,10 +98,6 @@ class ClientUser(ClientBase):
 class EmployeeBase(BaseModel):
     matricula: str
     cpf: str
-
-
-class EmployeeCreate(EmployeeBase):
-    user: UserCreate
 
 
 class Employee(EmployeeBase):
