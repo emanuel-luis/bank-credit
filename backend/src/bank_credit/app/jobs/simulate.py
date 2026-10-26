@@ -243,7 +243,7 @@ def _demo_history(
             deliver_date=(at + timedelta(days=rng.randint(15, 90))).date(),
             documents=REQUIRED_DOCUMENTS,
         )
-        actions = [(Action.APPROVE, None)] * approvals
+        actions: list[tuple[Action, str | None]] = [(Action.APPROVE, None)] * approvals
         if final is not None:
             reasons = RETURN_REASONS if final is Action.RETURN else REJECT_REASONS
             actions.append((final, rng.choice(reasons)))
