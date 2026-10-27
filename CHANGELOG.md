@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Diagrams as code: D2 sources in `docs/diagrams/` (architecture, data flow, four user flows,
+  two ERDs) rendered to committed SVGs; `make diagrams`, `diagrams-check`, `diagrams-watch`,
+  `d2-install`; CI job `diagrams (D2 render check)`. They replace the Mermaid blocks.
 - SLA analytics: versioned SQL views (`v_request_stage_intervals`, `v_sla_breach_rate_weekly`,
   `v_time_in_stage_weekly`, `v_throughput_daily`) applied by Alembic revision 0004,
   `/analytics/*` endpoints for managers and admins, and Reports pages with charts.
