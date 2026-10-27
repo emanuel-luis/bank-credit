@@ -101,7 +101,12 @@ export function StageChart({ bars }: { bars: StageBar[] }) {
       tooltip: {
         ...tooltip,
         callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1).replace('.', ',')} h`,
+          label: (ctx) => {
+            // chart.js 4.6 types parsed values as number | null (gaps in the data).
+            const hours = ctx.parsed.y;
+            if (hours === null) return `${ctx.dataset.label}: sem dados`;
+            return `${ctx.dataset.label}: ${hours.toFixed(1).replace('.', ',')} h`;
+          },
           afterBody: (items) => `${bars[items[0].dataIndex].n} etapas concluídas`,
         },
       },
