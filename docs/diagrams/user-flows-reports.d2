@@ -1,0 +1,36 @@
+# Manager: read the SLA reports of their own sector. Grounded in
+# frontend/src/components/reports/{ReportsPage,Charts}.tsx, frontend/src/api/analytics.ts,
+# frontend/src/hooks/{useAnalytics,useRequests}.ts, backend/src/bank_credit/app/routers/analytics.py,
+# routers/credit_request.py (GET /workflow), sql/views/*.v1.sql and docs/DECISIONS.md 51 to 53.
+# Admins use the same page with a sector picker.
+...@_style
+
+flow: "Manager: read the SLA reports of their own sector" {
+  shape: sequence_diagram
+  style: {font-size: 24; bold: true}
+
+  manager: "manager.retail_center" {class: actor}
+  spa: "Reports page\nReact, Chart.js" {class: serving}
+  api: "FastAPI" {class: process}
+  pg: "Postgres\nv_* views" {class: store}
+
+  manager -> spa: "Relatórios: from and to\n(empty: the API defaults)"
+  spa -> api: "GET /workflow"
+  api -> spa: "stage and sector names" {class: meta}
+  spa -> api: "GET /analytics/sla-breach-rate,\n/time-in-stage, /throughput\n?from&to&sector=own"
+  api -> api: "manager: own sector only; admin: any.\nDefault window: 12 weeks (weekly),\n90 days (throughput); weekly from\nmoves back to its Monday"
+  api -> pg: "SELECT * FROM the endpoint's view\nWHERE date BETWEEN from AND to\nAND sector_code = own sector"
+  pg -> api: "rows" {class: meta}
+  api -> spa: "{data, generated_at, source_view};\ncounts as integers, rates and\nhours as decimal strings" {class: meta}
+  spa -> manager: "weekly breach rate, p50 and p90\ntime in stage, daily throughput"
+
+  refused: "Refused before any query" {
+    api -> spa: "403 scope_not_allowed (another sector);\n403 forbidden (customer or staff);\n422 invalid_range (from after to)" {class: meta}
+  }
+}
+
+legend: "solid arrow: request or SQL · dashed: response" {
+  shape: text
+  near: bottom-center
+  style.font-size: 14
+}

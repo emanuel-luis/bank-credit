@@ -1,0 +1,42 @@
+# The scheduled sla-check job. Grounded in backend/src/bank_credit/app/jobs/{sla_check,runs}.py,
+# app/domain/workflow.py (apply_due_system_events, apply_event), app/notifications.py, app/cli.py,
+# the Makefile (sla-check target) and docs/runbook.md. The repo ships no scheduler: the runbook
+# suggests running it every 15 minutes.
+...@_style
+
+flow: "Scheduled sla-check: write the SLA breaches and expiries that came due" {
+  shape: sequence_diagram
+  style: {font-size: 24; bold: true}
+
+  sched: "Scheduler or operator\n(runbook: every 15 min)" {class: actor}
+  cli: "bank-credit sla-check\ndocker compose run api" {class: process}
+  wf: "workflow\nservice" {class: process}
+  pg: "Postgres" {class: store}
+
+  sched -> cli: "make sla-check"
+  cli -> pg: "INSERT job_runs (running),\ncommitted first"
+  cli -> pg: "SELECT open requests with\nsla_due_at <= now or expires_at <= now"
+
+  each: "For each due request, one transaction" {
+    cli -> pg: "SELECT ... FOR UPDATE"
+    cli -> wf: "apply_due_system_events(now, run_id)"
+    wf -> pg: "SLA_BREACHED stamped at sla_due_at,\nonce per stage entry"
+    wf -> pg: "EXPIRED stamped at expires_at (45 days\nafter submission) + customer notification"
+    cli -> pg: "COMMIT; events carry job_run_id"
+  }
+
+  cli -> pg: "UPDATE job_runs: succeeded, UTC finish,\nrows_read, rows_written\n(on error: failed + the error)"
+
+  rerun: "A rerun" {
+    sched -> cli: "make sla-check"
+    cli -> pg: "events already stamped at their\ndeadlines: rows_written = 0"
+  }
+
+  cli.lazy: "The API applies the same due events lazily\nbefore any transition. Either way an event\ncarries its deadline as occurred_at."
+}
+
+legend: "solid arrow: command, call or SQL · dashed: response" {
+  shape: text
+  near: bottom-center
+  style.font-size: 14
+}

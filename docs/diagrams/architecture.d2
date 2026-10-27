@@ -1,0 +1,59 @@
+# The system in context: who uses it, the compose services and what each one talks to.
+# Grounded in compose.yaml, frontend/nginx.conf, frontend/src/api/client.ts,
+# backend/src/bank_credit/app/{main,security,config,email,cli}.py, routers/auth.py, jobs/, the
+# Makefile (export mounts ./data) and docs/runbook.md (nothing in the repo schedules the jobs; the
+# runbook suggests a schedule). Layer detail is in data-flow.d2, the tables in data-model.d2 and
+# data-model-users.d2.
+# Layout: no compose container. ELK places nodes outside a container below all of it, which doubled
+# the height; the compose services say so in their labels instead.
+# `smtp <- api` keeps the arrow from the API to SMTP but lets ELK place SMTP in the top row.
+...@_style
+
+title: "Architecture: a credit-request workflow in one compose stack" {
+  shape: text
+  near: top-center
+  style: {font-size: 24; bold: true}
+}
+
+direction: down
+
+# Actor labels above the shape: their edges leave from the bottom and would cross a label there.
+customer: "Customer\n(a company)" {class: actor; label.near: outside-top-center}
+employee: "Employee\n(staff, manager, admin)" {class: actor; label.near: outside-top-center}
+operator: "Operator or\nscheduler" {class: actor; label.near: outside-top-center}
+smtp: "SMTP server\n(optional; off by\ndefault: logged)" {class: external}
+
+web: "compose: web · nginx :8080\nserves the React SPA,\nproxies /api/* to the API" {class: serving}
+api: "compose: api · FastAPI :8000\nOAuth2 password login → JWT\n(HS256, 30 min), checks on\nthe user's role and sector" {class: process}
+wf: "workflow.transition()\nthe only writer of\nrequest state" {class: process}
+pg: "compose: postgres 17\nvolume pgdata" {class: store}
+migrate: "compose: migrate · one-shot\nalembic upgrade head:\nschema, trigger, views" {class: process}
+seed: "compose: seed · one-shot\nbank-credit seed,\nthen simulate --seed 42" {class: process}
+jobs: "jobs · docker compose run api\nsla-check (runbook: every 15 min)\nexport (runbook: daily)" {class: process}
+files: "./data/exports (bind mount)\nCSV or Parquet partition\n+ _manifest.json" {class: store}
+
+customer -> web
+employee -> web
+operator -> jobs: "make sla-check, export" {class: meta}
+smtp <- api: "welcome email" {class: meta}
+web -> api: "/api/* + Bearer JWT"
+api -> wf: "submit, transitions"
+api -> pg: "reads, analytics views"
+wf -> pg: "event + projection, one transaction"
+migrate -> pg
+seed -> pg: "reference data, demo users"
+seed -> wf: "synthetic history"
+jobs -> wf: "sla-check: due events"
+jobs -> pg: "job_runs, export reads"
+jobs -> files: "checked partition"
+
+legend: Legend {
+  class: legend
+  grid-columns: 3
+  actor: actor {class: [actor; legend-actor]}
+  external: external system {class: [external; legend-item]}
+  process: process or job {class: [process; legend-item]}
+  store: stored data {class: [store; legend-store]}
+  serving: serving {class: [serving; legend-item]}
+  edges: "solid arrow: data or a call\ndashed: control or optional" {shape: text; style.font-size: 13}
+}

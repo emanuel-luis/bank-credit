@@ -1,0 +1,92 @@
+# Layers from the write path to serving: where every change is recorded, where the checks sit and
+# what each consumer reads. Grounded in backend/src/bank_credit/app/domain/workflow.py,
+# app/models.py (before_flush guard), alembic/versions/0002 (trigger) and 0004 (views),
+# sql/views/*.v1.sql, app/notifications.py, app/jobs/{runs,simulate,sla_check,export}.py,
+# app/contracts/exports.py, routers/analytics.py and frontend/src/components/reports/.
+# Layout notes: check boxes name what they guard because ELK orders a layer by its own rules; the
+# export's dataset names sit in its label (edge labels landed on crossings); no edge goes back up
+# to job_runs (ELK reverses back edges and staggers the containers).
+...@_style
+
+title: "Data flow: request lifecycle events to SLA analytics and checked exports" {
+  shape: text
+  near: top-center
+  style: {font-size: 24; bold: true}
+}
+
+direction: down
+
+src: "Source: who changes a request" {
+  class: group
+  api: "API transitions\ncustomer: submit,\nresubmit, cancel;\nreviewer: approve,\nreturn, reject" {class: source}
+  sim: "simulate job\nsynthetic history" {class: source}
+  sla: "sla-check job\ndue SLA_BREACHED, EXPIRED" {class: source}
+}
+
+wf: "workflow.transition()\nrow lock, then one transaction:\nevent + projection" {class: process}
+guards: "transition guards, before any\nwrite: party and sector,\nexpected_seq, status, reason" {class: check}
+
+# A short title: the edge into the leftmost table crossed the longer one.
+raw: "Raw tables" {
+  class: group
+  events: "request_events\nappend-only log,\nunique (request_id, seq)" {class: store}
+  requests: "credit_requests\ncurrent-state projection\n(+ request_documents)" {class: store}
+  notes: "notifications\napproved, returned,\nrejected, expired" {class: store}
+  append: "request_events append-only:\nPostgres trigger + ORM guard;\ntests: replaying the log\nequals credit_requests" {class: check}
+}
+
+# Outside the raw container so it shares the workflow's row instead of widening the table row.
+runs: "job_runs (Postgres)\none row per job run;\nevents carry job_run_id" {class: store}
+
+# The processed layer is one view, so it is a node, not a container (its edge crossed the title).
+intervals: "Processed: v_request_stage_intervals\nversioned SQL (*.v1.sql, Alembic 0004),\none row per stage entry;\nexit by LEAD, SLA missed?" {class: process}
+
+serve: "Serving" {
+  class: group
+  breach: "v_sla_breach_rate_weekly" {class: process}
+  stage: "v_time_in_stage_weekly\nn, avg, p50, p90 hours" {class: process}
+  through: "v_throughput_daily" {class: process}
+  analytics: "/analytics/* endpoints\nmanager: own sector,\nadmin: any sector" {class: serving}
+  reports: "Reports page\nChart.js" {class: serving}
+  export: "export job, as of a time\nrequest_events (recorded_at),\nstage_intervals,\nsla_breach_weekly;\none job_runs row" {class: process}
+  contract: "export checks:\npydantic contracts,\nseq unique, contiguous;\nmonotonic time, nulls" {class: check}
+  files: "data/exports/<dataset>/\nas_of=<date>/part-0.csv\nor .parquet + _manifest.json\n(row count, sha256)" {class: store}
+}
+
+src.api -> wf
+src.sim -> wf
+src.sla -> wf
+src.api -> guards {class: layer}
+src.sim -> runs {class: meta}
+src.sla -> runs {class: meta}
+
+wf -> raw.events: "INSERT seq + 1"
+wf -> raw.requests: "UPDATE status,\nstage, sla_due_at"
+wf -> raw.notes
+wf -> raw.append {class: layer}
+
+raw.events -> intervals
+intervals -> serve.breach
+intervals -> serve.stage
+intervals -> serve.through
+serve.breach -> serve.analytics
+serve.stage -> serve.analytics
+serve.through -> serve.analytics
+serve.analytics -> serve.reports: "JSON; rates and hours\nas decimal strings"
+
+raw.events -> serve.export
+intervals -> serve.export
+serve.breach -> serve.export
+serve.breach -> serve.contract {class: layer}
+serve.export -> serve.files: "published only when\nevery check passes"
+
+legend: Legend {
+  class: legend
+  grid-columns: 4
+  source: who writes {class: [source; legend-item]}
+  process: process or view {class: [process; legend-item]}
+  store: table or files {class: [store; legend-store]}
+  serving: serving {class: [serving; legend-item]}
+  check: guard, contract or test {class: [check; legend-item]}
+  edges: "solid arrow: data\ndashed: run metadata" {shape: text; style.font-size: 13}
+}
