@@ -36,6 +36,10 @@ updates:
       # The runtime stays on Python 3.12 (decision 8); only digest and patch updates of that tag.
       - dependency-name: "python"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # The Node major of the build stage moves by hand, to an LTS line only and together with
+      # CI's setup-node (decision 62); digest updates of the current tag still come.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: weekly
     groups:
