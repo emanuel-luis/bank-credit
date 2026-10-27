@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import type { DocumentType } from '../../api/types';
@@ -23,10 +23,10 @@ export default function NewApplication() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormData>({ defaultValues: { documents: [] } });
-  const selected = watch('documents');
+  const selected = useWatch({ control, name: 'documents' });
   const missing = REQUIRED_DOCUMENTS.some((d) => !selected.includes(d));
 
   const onSubmit = (data: FormData) =>
