@@ -25,7 +25,7 @@ smtp: "SMTP server\n(optional; off by\ndefault: logged)" {class: external}
 
 web: "compose: web · nginx :8080\nserves the React SPA,\nproxies /api/* to the API" {class: serving}
 api: "compose: api · FastAPI :8000\nOAuth2 password login → JWT\n(HS256, 30 min), checks on\nthe user's role and sector" {class: process}
-wf: "workflow.transition()\nthe only writer of\nrequest state" {class: process}
+wf: "workflow service\nsubmit, transition, due events:\nthe only writer of request state" {class: process}
 pg: "compose: postgres 17\nvolume pgdata" {class: store}
 migrate: "compose: migrate · one-shot\nalembic upgrade head:\nschema, trigger, views" {class: process}
 seed: "compose: seed · one-shot\nbank-credit seed,\nthen simulate --seed 42" {class: process}
@@ -41,7 +41,7 @@ api -> wf: "submit, transitions"
 api -> pg: "reads, analytics views"
 wf -> pg: "event + projection, one transaction"
 migrate -> pg
-seed -> pg: "reference data, demo users"
+seed -> pg: "reference data,\ndemo users"
 seed -> wf: "synthetic history"
 jobs -> wf: "sla-check: due events"
 jobs -> pg: "job_runs, export reads"
