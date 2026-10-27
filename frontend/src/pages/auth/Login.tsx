@@ -66,13 +66,13 @@ export default function Login() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 E-mail
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="mt-1 relative rounded-md shadow-xs">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" aria-hidden="true" />
                 </div>
@@ -82,7 +82,7 @@ export default function Login() {
                   autoComplete="email"
                   className={`block w-full pl-10 pr-3 py-2 border ${
                     errors.email ? 'border-red-300 text-red-900' : 'border-gray-300'
-                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
+                  } rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
                   placeholder="Digite seu e-mail"
                   {...register('email', { 
                     required: 'Informe o e-mail',
@@ -102,7 +102,7 @@ export default function Login() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Senha
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="mt-1 relative rounded-md shadow-xs">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" aria-hidden="true" />
                 </div>
@@ -112,7 +112,7 @@ export default function Login() {
                   autoComplete="current-password"
                   className={`block w-full pl-10 pr-3 py-2 border ${
                     errors.password ? 'border-red-300 text-red-900' : 'border-gray-300'
-                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
+                  } rounded-md shadow-xs placeholder-gray-400 focus:outline-hidden focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
                   placeholder="Digite sua senha"
                   {...register('password', { required: 'Informe a senha' })}
                 />
@@ -123,7 +123,7 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm relative" role="alert">
                 <span className="block sm:inline">{error}</span>
               </div>
             )}
