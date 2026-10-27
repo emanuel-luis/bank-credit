@@ -22,6 +22,10 @@ updates:
 
   - package-ecosystem: npm
     directory: /frontend
+    ignore:
+      # openapi-typescript 7 requires TypeScript 5 and typescript-eslint 8 stops at 6.0 (decision 63).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: weekly
     groups:
@@ -29,6 +33,19 @@ updates:
         patterns: ["*"]
         # Majors arrive as their own PRs so breaking upgrades get a separate review.
         update-types: ["minor", "patch"]
+      # Packages that only work on the same major move in one PR (decision 63).
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["major"]
+      vite:
+        patterns: ["vite", "@vitejs/*", "vitest", "@vitest/*"]
+        update-types: ["major"]
+      eslint:
+        patterns: ["eslint", "@eslint/*", "eslint-plugin-*", "typescript-eslint", "globals"]
+        update-types: ["major"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*", "tailwind-merge"]
+        update-types: ["major"]
 
   - package-ecosystem: docker
     directories: [/backend, /frontend]
