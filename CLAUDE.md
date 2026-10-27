@@ -13,7 +13,13 @@ make test-integration                    # Postgres integration tests (compose p
 make smoke                               # end-to-end API smoke through nginx (stack up)
 cd backend && uv run bank-credit --help  # serve | seed | simulate | sla-check | export | openapi
 cd frontend && npm run gen:api           # regenerate src/api/schema.d.ts from openapi.json
+make d2-install                          # once: pinned D2 v0.9.0 (Linux x86_64, sha256 checked)
+make diagrams | make diagrams-check      # render docs/diagrams/*.d2; check = render + fail on diff (= CI)
+make diagrams-watch NAME=<name>          # live preview of one diagram in the browser
 ```
+
+On Windows, run the diagram targets in WSL (`wsl -d Ubuntu -e bash -lc 'cd /mnt/d/... && make
+diagrams'`): CI renders with the Linux binary.
 
 ## Repo map
 
@@ -25,6 +31,7 @@ cd frontend && npm run gen:api           # regenerate src/api/schema.d.ts from o
 - `backend/alembic/versions/`: Postgres-only revisions.
 - `frontend/src/api/openapi.json`: committed API contract; `schema.d.ts` is generated from it.
 - `scripts/smoke.py`: stdlib end-to-end smoke used by CI.
+- `docs/diagrams/`: D2 sources (`_style.d2` is imported by all) and the rendered SVGs.
 
 ## Invariants
 
@@ -37,6 +44,11 @@ cd frontend && npm run gen:api           # regenerate src/api/schema.d.ts from o
 - After changing the API, run `uv run bank-credit openapi --out ../frontend/src/api/openapi.json`
   and `npm run gen:api`; CI fails on drift.
 - Jobs run inside `job_run(...)` and stay idempotent.
+- Diagrams change through their `.d2` source, then `make diagrams`; commit both. No Mermaid. When
+  the schema, a flow or a service changes, update the diagram that draws it (CI only checks that
+  the SVGs match the sources, not the code).
+- Edit `.d2` files with an editor or the Edit tool, not sed or heredocs: they mangle `\n` inside
+  D2 strings. Escape `$` as `\$` in D2 labels.
 
 ## Conventions
 
