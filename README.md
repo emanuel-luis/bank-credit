@@ -33,13 +33,13 @@ gets through per day.
 
 ## Architecture
 
-![Architecture: customers and employees use the React SPA behind nginx, which proxies /api to FastAPI (JWT login, role checks). The API, the seed and the sla-check and export jobs write through workflow.transition into Postgres; export writes checked files to ./data/exports.](docs/diagrams/architecture.svg)
+![Architecture: customers and employees use the React SPA behind nginx, which proxies /api to FastAPI (JWT login, role checks). The API, the seed's simulate step and the sla-check job write through the workflow service into Postgres; the export job reads Postgres and writes checked files to ./data/exports.](docs/diagrams/architecture.svg)
 
 Source: [architecture.d2](docs/diagrams/architecture.d2).
 
 ### Data flow
 
-![Data flow: every change goes through workflow.transition into the append-only request_events log and the credit_requests projection. Versioned SQL views turn the log into SLA analytics for the /analytics endpoints and the Reports page, and the export job publishes checked CSV or Parquet partitions with a manifest.](docs/diagrams/data-flow.svg)
+![Data flow: every change goes through the workflow service into the append-only request_events log and the credit_requests projection. Versioned SQL views turn the log into SLA analytics for the /analytics endpoints and the Reports page, and the export job publishes checked CSV or Parquet partitions with a manifest.](docs/diagrams/data-flow.svg)
 
 Source: [data-flow.d2](docs/diagrams/data-flow.d2).
 

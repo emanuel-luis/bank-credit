@@ -23,7 +23,7 @@ src: "Source: who changes a request" {
   sla: "sla-check job\ndue SLA_BREACHED, EXPIRED" {class: source}
 }
 
-wf: "workflow.transition()\nrow lock, then one transaction:\nevent + projection" {class: process}
+wf: "workflow service\nsubmit, transition, due events;\nrow lock, then one transaction:\nevent + projection" {class: process}
 guards: "transition guards, before any\nwrite: party and sector,\nexpected_seq, status, reason" {class: check}
 
 # A short title: the edge into the leftmost table crossed the longer one.
