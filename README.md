@@ -33,30 +33,15 @@ gets through per day.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph source[Source]
-    UI[React SPA] -->|/api via nginx| API[FastAPI]
-    SIM[simulate job] --> WF
-    API --> WF[workflow.transition]
-    SLA[sla-check job] --> WF
-  end
-  subgraph raw[Raw]
-    WF --> EV[(request_events<br/>append-only)]
-    WF --> CR[(credit_requests<br/>current state)]
-  end
-  subgraph processed[Processed]
-    EV --> INT[v_request_stage_intervals]
-  end
-  subgraph serving[Serving]
-    INT --> BR[v_sla_breach_rate_weekly]
-    INT --> TS[v_time_in_stage_weekly]
-    INT --> TP[v_throughput_daily]
-    BR & TS & TP --> AN[/analytics endpoints/]
-    AN --> REP[Reports page]
-    EV & INT & BR --> EXP[export job] --> FILES[(data/exports<br/>CSV or Parquet + manifest)]
-  end
-```
+![Architecture: customers and employees use the React SPA behind nginx, which proxies /api to FastAPI (JWT login, role checks). The API, the seed's simulate step and the sla-check job write through the workflow service into Postgres; the export job reads Postgres and writes checked files to ./data/exports.](docs/diagrams/architecture.svg)
+
+Source: [architecture.d2](docs/diagrams/architecture.d2).
+
+### Data flow
+
+![Data flow: every change goes through the workflow service into the append-only request_events log and the credit_requests projection. Versioned SQL views turn the log into SLA analytics for the /analytics endpoints and the Reports page, and the export job publishes checked CSV or Parquet partitions with a manifest.](docs/diagrams/data-flow.svg)
+
+Source: [data-flow.d2](docs/diagrams/data-flow.d2).
 
 | Layer | Objects | Guarantees |
 | --- | --- | --- |
@@ -65,8 +50,8 @@ flowchart LR
 | Processed | `v_request_stage_intervals` | One row per stage entry; a pure function of the log |
 | Serving | `v_sla_breach_rate_weekly`, `v_time_in_stage_weekly`, `v_throughput_daily`, `/analytics/*`, export partitions | Contracts and batch checks before publishing; manifest with row count and sha256 |
 
-More detail: [docs/architecture.md](docs/architecture.md),
-[docs/data-contracts.md](docs/data-contracts.md), [docs/runbook.md](docs/runbook.md).
+More detail: [docs/architecture.md](docs/architecture.md) (user flows per role and the data
+model), [docs/data-contracts.md](docs/data-contracts.md), [docs/runbook.md](docs/runbook.md).
 
 ## Tech stack
 
@@ -129,11 +114,18 @@ make lint              # ruff, ruff format --check, mypy, eslint, tsc (same as C
 make test              # backend unit tests (SQLite)
 make test-integration  # Postgres integration tests against the compose database
 make smoke             # end-to-end API smoke through nginx (stack must be up)
+make d2-install        # once: the pinned D2 v0.9.0 (Linux x86_64), checksum verified
+make diagrams          # render docs/diagrams/*.d2 to the committed SVGs
+make diagrams-check    # render, then fail if a committed SVG is stale (same as CI)
+make diagrams-watch NAME=architecture   # live preview in the browser while editing
 ```
 
+Diagrams are D2 sources in `docs/diagrams/`; edit the `.d2`, run `make diagrams` and commit both
+files. On Windows, run these targets in WSL.
+
 CI runs lint, unit tests, Postgres integration tests (service container), the frontend checks
-(lint, typecheck, vitest, build, generated-types drift) and a compose smoke that brings the stack
-up and drives a request through all five stages. `security.yml` runs pip-audit and npm audit;
+(lint, typecheck, vitest, build, generated-types drift), a D2 render check of the diagrams and a
+compose smoke that brings the stack up and drives a request through all five stages. `security.yml` runs pip-audit and npm audit;
 Dependabot proposes weekly updates.
 
 ## Project structure
@@ -153,6 +145,7 @@ backend/
 frontend/          # React + Vite SPA, generated API types, nginx config
 scripts/smoke.py   # end-to-end smoke used by CI
 docs/              # architecture, data contracts, runbook, decisions
+  diagrams/        # D2 sources (*.d2) and the rendered SVGs
 compose.yaml  Makefile
 ```
 

@@ -1,0 +1,86 @@
+# Users, their role records and customer notifications. Grounded in
+# backend/src/bank_credit/app/models.py, backend/alembic/versions/0001_initial.py and
+# app/jobs/seed.py (which roles get which record): every arrow is a declared foreign key.
+# notifications.request_id points to credit_requests, drawn in data-model.d2; the note says so.
+...@_style
+
+title: "Data model: users, roles and notifications" {
+  shape: text
+  near: top-center
+  style: {font-size: 24; bold: true}
+}
+
+note: "users.role: customer (one clients row, CNPJ), staff and manager (one employees row with a sector), admin (employees row, no sector).\nThe JWT subject is users.email; deleting a user cascades to its clients or employees row.\nOutside this diagram: notifications.request_id → credit_requests.id; credit_requests.client_id → clients.id (data-model)." {
+  shape: text
+  near: bottom-center
+  style.font-size: 15
+}
+
+direction: right
+
+users: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  email: varchar(254) {constraint: unique}
+  full_name: varchar(200)
+  phone: varchar(20)
+  hashed_password: text
+  role: varchar(16)
+  is_active: boolean
+  created_at: timestamptz
+  last_login_at: timestamptz
+}
+
+clients: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  user_id: integer {constraint: [foreign_key; unique]}
+  cnpj: char(14) {constraint: unique}
+  trade_name: varchar(200)
+  legal_name: varchar(200)
+  cnae_primary: varchar(16)
+  cnae_primary_desc: varchar(255)
+  cnae_secondary: varchar(16)
+  cnae_secondary_desc: varchar(255)
+  legal_nature_code: varchar(8)
+  legal_nature_desc: varchar(255)
+  street: varchar(200)
+  number: varchar(20)
+  complement: varchar(100)
+  postal_code: char(8)
+  district: varchar(100)
+  city: varchar(100)
+  state: char(2)
+}
+
+employees: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  user_id: integer {constraint: [foreign_key; unique]}
+  employee_number: varchar(16) {constraint: unique}
+  cpf: char(11) {constraint: unique}
+  sector_id: integer {constraint: foreign_key}
+}
+
+sectors: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  code: varchar(32) {constraint: unique}
+  name: varchar(80) {constraint: unique}
+}
+
+notifications: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  client_id: integer {constraint: foreign_key}
+  request_id: integer {constraint: foreign_key}
+  subject: varchar(200)
+  message: text
+  read_at: timestamptz
+  created_at: timestamptz
+}
+
+clients.user_id -> users.id
+employees.user_id -> users.id
+employees.sector_id -> sectors.id
+notifications.client_id -> clients.id
