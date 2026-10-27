@@ -138,7 +138,7 @@ export default function NewApplication() {
         </Card>
 
         {create.isError && (
-          <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
             {errorMessage(create.error)}
           </div>
         )}
