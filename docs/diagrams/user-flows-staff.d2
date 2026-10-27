@@ -1,0 +1,54 @@
+# Staff: work the sector queue and move a request through the routed stages under SLA. Grounded in
+# frontend/src/pages/staff/{Dashboard,Applications}.tsx, frontend/src/hooks/useQueueScope.ts,
+# frontend/src/components/loan/{RequestDetailPage,ReasonDialog}.tsx,
+# backend/src/bank_credit/app/routers/credit_request.py, app/domain/{workflow,reference}.py and
+# app/notifications.py. Managers use the same queue pages; admins see every request.
+# Labels wrap at about 28 characters: the widest label between two lifelines sets their gap.
+...@_style
+
+flow: "Staff: move a request through the routed stages under SLA" {
+  shape: sequence_diagram
+  style: {font-size: 24; bold: true}
+
+  staff: "staff1.retail_center" {class: actor}
+  spa: "React SPA\nqueue and detail" {class: serving}
+  api: "FastAPI\n/requests" {class: process}
+  wf: "workflow\nservice" {class: process}
+  pg: "Postgres" {class: store}
+
+  staff -> spa: "Fila do setor\n(filter: only overdue)"
+  spa -> api: "GET /requests\n?scope=queue"
+  api -> pg: "own sector, IN_REVIEW,\nby sla_due_at"
+  api -> spa: "page, is_overdue flags" {class: meta}
+  staff -> spa: "opens a request"
+  spa -> api: "GET /requests/{id}\nand /history"
+  api -> spa: "history, last_seq,\nallowed_actions" {class: meta}
+
+  staff -> spa: "Aprovar"
+  spa -> api: "POST .../transitions\n{approve, expected_seq}"
+  api -> wf: "transition()"
+  wf -> pg: "SELECT ... FOR UPDATE"
+  wf -> wf: "own sector (or admin)?\nexpected_seq = last_seq?\nIN_REVIEW?"
+  wf -> pg: "due events first:\nSLA_BREACHED, EXPIRED\nat their deadlines"
+  wf -> pg: "next stage by position;\nsector and SLA hours from\nstage_routes by amount band\n(split at R\$ 4,800,000.00)"
+  wf -> pg: "STAGE_APPROVED seq + 1;\nUPDATE stage, sector,\nsla_due_at"
+  api -> spa: "200 RequestDetail" {class: meta}
+
+  last: "Approving stage 5 (Central de Desembolso)" {
+    wf -> pg: "APPROVED, closed_at,\ncustomer notification"
+  }
+  reason: "Devolver or Rejeitar: a reason is required" {
+    staff -> spa: "reason in the dialog"
+    spa -> api: "{return | reject, reason}"
+    wf -> pg: "RETURNED or REJECTED;\ncustomer notification"
+  }
+  conflict: "Acted first elsewhere, expired, or another sector" {
+    api -> spa: "409 stale_seq: refetch;\n409 request_expired;\n403 forbidden" {class: meta}
+  }
+}
+
+legend: "solid arrow: request, call or SQL · dashed: response" {
+  shape: text
+  near: bottom-center
+  style.font-size: 14
+}

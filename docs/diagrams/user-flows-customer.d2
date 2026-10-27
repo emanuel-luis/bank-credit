@@ -1,0 +1,58 @@
+# Customer: submit a credit request with the documents checklist, then resubmit it after a reviewer
+# returns it. Grounded in frontend/src/pages/customer/{NewApplication,Applications}.tsx,
+# frontend/src/components/loan/RequestDetailPage.tsx, frontend/src/hooks/useRequests.ts,
+# backend/src/bank_credit/app/routers/credit_request.py, app/domain/{workflow,enums}.py,
+# app/notifications.py and docs/DECISIONS.md 47 and 48. The SPA has no notifications screen yet:
+# the rows are served by GET /notifications only.
+# Labels wrap at about 28 characters: the widest label between two lifelines sets their gap.
+...@_style
+
+flow: "Customer: submit with the documents checklist, resubmit when returned" {
+  shape: sequence_diagram
+  style: {font-size: 24; bold: true}
+
+  customer: "customer1\n(company user)" {class: actor}
+  spa: "React SPA" {class: serving}
+  api: "FastAPI\n/requests" {class: process}
+  wf: "workflow\nservice" {class: process}
+  pg: "Postgres" {class: store}
+
+  customer -> spa: "Nova solicitação: amount,\npurpose, term, deliver date,\nthe documents it has"
+  spa -> spa: "Enviar disabled until the\n4 required documents are\nticked (collateral optional)"
+  spa -> api: "POST /requests\n+ Bearer JWT"
+  api -> wf: "submit_request()"
+  wf -> wf: "owner? amount > 0?\ndeliver date not past?\nrequired documents?"
+
+  invalid: "A check fails" {
+    api -> spa: "422 missing_documents,\ninvalid_amount, ...:\nnothing written" {class: meta}
+  }
+
+  wf -> pg: "stage 1 route for the\namount band: sector,\nSLA hours"
+  wf -> pg: "one transaction:\ncredit_requests IN_REVIEW,\nrequest_documents,\nSUBMITTED event (seq 1)"
+  api -> spa: "201 RequestDetail" {class: meta}
+
+  returned: "Later a reviewer returns it with a reason" {
+    wf -> pg: "RETURNED event, status\nRETURNED, notifications row"
+    customer -> spa: "opens the request\n(status Devolvida)"
+    spa -> api: "GET /requests/{id}\nand /history"
+    api -> spa: "reason, last_seq,\nallowed_actions:\nresubmit, cancel" {class: meta}
+  }
+
+  customer -> spa: "Reenviar"
+  spa -> api: "POST .../transitions\n{resubmit, expected_seq}"
+  api -> wf: "transition()"
+  wf -> pg: "SELECT ... FOR UPDATE"
+  wf -> wf: "owner? expected_seq\n= last_seq? RETURNED?\nnot expired?"
+  wf -> pg: "RESUBMITTED: same stage,\nsector and SLA from its\nroute; IN_REVIEW; documents\nstay as declared"
+  api -> spa: "200 RequestDetail" {class: meta}
+
+  stale: "Someone acted first, or 45 days passed" {
+    api -> spa: "409 stale_seq: refetch;\n409 request_expired" {class: meta}
+  }
+}
+
+legend: "solid arrow: request, call or SQL · dashed: response" {
+  shape: text
+  near: bottom-center
+  style.font-size: 14
+}

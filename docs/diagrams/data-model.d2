@@ -1,0 +1,115 @@
+# Requests, the workflow reference tables and the event log. Grounded in
+# backend/src/bank_credit/app/models.py and backend/alembic/versions/0001_initial.py,
+# 0002_request_events_append_only.py and 0003_request_documents.py: every arrow is a declared
+# foreign key. Enum columns are varchar with a CHECK on the allowed values; times are timestamptz
+# in UTC; money is numeric(14,2). credit_requests.client_id and request_events.actor_user_id point
+# to tables drawn in data-model-users.d2; the note says so instead of one-column stub tables.
+...@_style
+
+title: "Data model: requests, workflow routes and the event log" {
+  shape: text
+  near: top-center
+  style: {font-size: 24; bold: true}
+}
+
+note: "request_events is append-only (trigger 0002 + ORM guard), unique (request_id, seq); its rows rebuild the credit_requests projection.\nstage_routes: unique (stage_id, min_amount); bands [min_amount, max_amount) cover every amount for each stage.\nOutside this diagram: credit_requests.client_id → clients.id, request_events.actor_user_id → users.id (data-model-users)." {
+  shape: text
+  near: bottom-center
+  style.font-size: 15
+}
+
+direction: right
+
+stages: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  code: varchar(32) {constraint: unique}
+  name: varchar(80)
+  position: smallint {constraint: unique}
+}
+
+sectors: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  code: varchar(32) {constraint: unique}
+  name: varchar(80) {constraint: unique}
+}
+
+stage_routes: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  stage_id: integer {constraint: foreign_key}
+  sector_id: integer {constraint: foreign_key}
+  min_amount: numeric(14,2)
+  max_amount: numeric(14,2)
+  sla_hours: integer
+}
+
+credit_requests: {
+  shape: sql_table
+  id: integer {constraint: primary_key}
+  client_id: integer {constraint: foreign_key}
+  amount: numeric(14,2)
+  purpose: varchar(500)
+  term_days: integer
+  deliver_date: date
+  status: varchar(16)
+  current_stage_id: integer {constraint: foreign_key}
+  current_sector_id: integer {constraint: foreign_key}
+  submitted_at: timestamptz
+  expires_at: timestamptz
+  stage_entered_at: timestamptz
+  sla_due_at: timestamptz
+  sla_breached_at: timestamptz
+  closed_at: timestamptz
+  last_seq: integer
+  updated_at: timestamptz
+}
+
+request_documents: {
+  shape: sql_table
+  request_id: integer {constraint: [primary_key; foreign_key]}
+  document_type: varchar(24) {constraint: primary_key}
+  declared_at: timestamptz
+}
+
+request_events: {
+  shape: sql_table
+  id: bigint identity {constraint: primary_key}
+  request_id: integer {constraint: foreign_key}
+  seq: integer
+  event_type: varchar(24)
+  from_status: varchar(16)
+  to_status: varchar(16)
+  stage_id: integer {constraint: foreign_key}
+  sector_id: integer {constraint: foreign_key}
+  sla_due_at: timestamptz
+  actor_user_id: integer {constraint: foreign_key}
+  job_run_id: uuid {constraint: foreign_key}
+  reason: text
+  occurred_at: timestamptz
+  recorded_at: timestamptz
+}
+
+job_runs: {
+  shape: sql_table
+  run_id: uuid {constraint: primary_key}
+  job_name: varchar(32)
+  status: varchar(16)
+  params: json
+  started_at: timestamptz
+  finished_at: timestamptz
+  rows_read: integer
+  rows_written: integer
+  error: text
+}
+
+stage_routes.stage_id -> stages.id
+stage_routes.sector_id -> sectors.id
+credit_requests.current_stage_id -> stages.id
+credit_requests.current_sector_id -> sectors.id
+request_documents.request_id -> credit_requests.id
+request_events.request_id -> credit_requests.id
+request_events.stage_id -> stages.id
+request_events.sector_id -> sectors.id
+request_events.job_run_id -> job_runs.run_id
