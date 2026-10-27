@@ -28,8 +28,9 @@ export default function StaffDashboard() {
     .slice()
     .sort((a, b) => (a.sla_due_at ?? '9999').localeCompare(b.sla_due_at ?? '9999'));
 
+  // Measured from when the queue was fetched, like is_overdue, so render stays pure.
   const dueSoon = bySla?.filter(
-    (r) => !r.is_overdue && r.sla_due_at && new Date(r.sla_due_at).getTime() - Date.now() <= DAY_MS,
+    (r) => !r.is_overdue && r.sla_due_at && new Date(r.sla_due_at).getTime() - next.dataUpdatedAt <= DAY_MS,
   ).length;
 
   return (
