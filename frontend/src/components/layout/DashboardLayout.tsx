@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+            className="fixed inset-0 bg-gray-600/75"
             onClick={() => setSidebarOpen(false)}
           />
           
@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           >
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
-                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-hidden focus:ring-2 focus:ring-inset focus:ring-white"
                 onClick={() => setSidebarOpen(false)}
               >
                 <span className="sr-only">Fechar menu</span>
@@ -99,7 +99,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             
             <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-              <div className="flex-shrink-0 flex items-center px-4">
+              <div className="shrink-0 flex items-center px-4">
                 <Building2 className="h-8 w-8 text-primary-600" />
                 <span className="ml-2 text-xl font-bold text-primary-600">
                   Bank Credit
@@ -130,8 +130,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </nav>
             </div>
             
-            <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-              <div className="flex-shrink-0 group block">
+            <div className="shrink-0 flex border-t border-gray-200 p-4">
+              <div className="shrink-0 group block">
                 <div className="flex items-center">
                   <div className="bg-gray-200 rounded-full h-10 w-10 flex items-center justify-center">
                     <span className="text-gray-600 font-medium">
@@ -158,7 +158,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
+            <div className="flex items-center shrink-0 px-4">
               <Building2 className="h-8 w-8 text-primary-600" />
               <span className="ml-2 text-xl font-bold text-primary-600">
                 Bank Credit
@@ -188,15 +188,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               ))}
             </nav>
           </div>
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <div className="flex-shrink-0 w-full group block">
+          <div className="shrink-0 flex border-t border-gray-200 p-4">
+            <div className="shrink-0 w-full group block">
               <div className="flex items-center">
                 <div className="bg-gray-200 rounded-full h-9 w-9 flex items-center justify-center">
                   <span className="text-gray-600 font-medium">
                     {user.full_name.split(' ').map(n => n[0]).join('')}
                   </span>
                 </div>
-                <div className="ml-3 flex flex-col flex-grow min-w-0">
+                <div className="ml-3 flex flex-col grow min-w-0">
                   <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900 truncate">
                     {user.full_name}
                   </p>
@@ -224,7 +224,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="sticky top-0 z-10 bg-white pl-1 pt-1 sm:pl-3 sm:pt-3 md:hidden">
           <button
             type="button"
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-inset focus:ring-primary-500"
             onClick={() => setSidebarOpen(true)}
           >
             <span className="sr-only">Abrir menu</span>
@@ -235,14 +235,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <main className="flex-1">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              <header className="bg-white shadow-sm mb-6 rounded-lg">
+              <header className="bg-white shadow-xs mb-6 rounded-lg">
                 <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
                   <div className="flex items-center justify-between">
                     <h1 className="text-lg font-semibold text-gray-900">
                       {navigation.find(item => item.href === location.pathname)?.name ?? detailTitle(location.pathname) ?? 'Painel'}
                     </h1>
-                    <div className="flex items-center space-x-4">
-                      <button className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <div className="flex items-center gap-4">
+                      <button className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         <span className="sr-only">Ver notificações</span>
                         <Bell className="h-6 w-6" aria-hidden="true" />
                         <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-error-500 ring-2 ring-white"></span>

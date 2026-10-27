@@ -40,7 +40,7 @@ const USER_FIELDS = [
   { name: 'user.password', label: 'Senha (mínimo 8 caracteres)', type: 'password', max: 128 },
 ] as const;
 
-const inputClass = 'w-full border rounded px-2 py-1';
+const inputClass = 'w-full border rounded-sm px-2 py-1';
 const emptyToNull = (v: string) => (v.trim() === '' ? null : v.trim());
 
 export default function RegisterClient() {
@@ -76,7 +76,7 @@ export default function RegisterClient() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8">
-      <div className="max-w-2xl w-full bg-white p-8 rounded shadow">
+      <div className="max-w-2xl w-full bg-white p-8 rounded-sm shadow-sm">
         <h2 className="text-2xl font-bold mb-6">Cadastro de cliente</h2>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
