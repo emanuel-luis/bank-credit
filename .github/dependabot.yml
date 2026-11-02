@@ -1,55 +1,65 @@
+# Monthly update PRs, one group per ecosystem for minor and patch. Semver-major version updates
+# are ignored and move by hand; packages that only work on the same major move together in one
+# PR (decision 63): react + react-dom + their types, vite + @vitejs/* + vitest, the ESLint family
+# with typescript-eslint and globals, and tailwindcss + @tailwindcss/* + tailwind-merge.
+# A release waits 7 days before it is proposed. Security updates skip the schedule and the
+# cooldown. .github/workflows/dependabot-auto-merge.yml merges these PRs once CI is green.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
-        # Majors arrive as their own PRs so breaking upgrades get a separate review.
         update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: uv
     directory: /backend
     schedule:
-      interval: weekly
+      interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       python:
         patterns: ["*"]
-        # Majors arrive as their own PRs so breaking upgrades get a separate review.
         update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
     ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
       # openapi-typescript 7 requires TypeScript 5 and typescript-eslint 8 stops at 6.0 (decision 63).
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
-    schedule:
-      interval: weekly
     groups:
       npm:
         patterns: ["*"]
-        # Majors arrive as their own PRs so breaking upgrades get a separate review.
         update-types: ["minor", "patch"]
-      # Packages that only work on the same major move in one PR (decision 63).
-      react:
-        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
-        update-types: ["major"]
-      vite:
-        patterns: ["vite", "@vitejs/*", "vitest", "@vitest/*"]
-        update-types: ["major"]
-      eslint:
-        patterns: ["eslint", "@eslint/*", "eslint-plugin-*", "typescript-eslint", "globals"]
-        update-types: ["major"]
-      tailwind:
-        patterns: ["tailwindcss", "@tailwindcss/*", "tailwind-merge"]
-        update-types: ["major"]
 
   - package-ecosystem: docker
     directories: [/backend, /frontend]
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
     ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
       # The runtime stays on Python 3.12 (decision 8); only digest and patch updates of that tag.
       - dependency-name: "python"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
@@ -57,10 +67,7 @@ updates:
       # CI's setup-node (decision 62); digest updates of the current tag still come.
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
-    schedule:
-      interval: weekly
     groups:
       docker:
         patterns: ["*"]
-        # Majors arrive as their own PRs so breaking upgrades get a separate review.
         update-types: ["minor", "patch"]
